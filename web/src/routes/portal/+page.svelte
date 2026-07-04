@@ -2,7 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import ProfileSection from './ProfileSection.svelte';
 	import BrowseActivities from './BrowseActivities.svelte';
-  import CreditsProgress from './CreditsProgress.svelte';
+  	import CreditsProgress from './CreditsProgress.svelte';
 	import ExtracurricularMarksheet from './ExtracurricularMarksheet.svelte';
 
 
