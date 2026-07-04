@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import ProfileSection from './ProfileSection.svelte';
 	import BrowseActivities from './BrowseActivities.svelte';
+	import LeaderboardSection from './LeaderboardSection.svelte';
 	import CreditsProgress from './CreditsProgress.svelte';
 	import ExtracurricularMarksheet from './ExtracurricularMarksheet.svelte';
 
@@ -442,7 +443,9 @@
 								? 'Welcome Back, Rahul!'
 								: currentTab === 'Activities'
 									? 'Browse Activities'
-									: currentTab}
+									: currentTab === 'Leaderboard'
+										? 'Leader board'
+										: currentTab}
 					</h1>
 					<p
 						class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5"
@@ -1215,6 +1218,8 @@
 				<ProfileSection />
 			{:else if currentTab === 'Activities'}
 				<BrowseActivities />
+			{:else if currentTab === 'Leaderboard'}
+				<LeaderboardSection />
 			{:else if currentTab === 'Credits & Progress'}
 				<CreditsProgress />
 			{:else if currentTab === 'Extracurricular Marksheet'}
