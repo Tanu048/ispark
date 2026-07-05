@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { fade, slide } from 'svelte/transition';
-	import MentorDashboardView from './MentorDashboardView.svelte';
-	import MentorPlaceholderView from './MentorPlaceholderView.svelte';
+	import AdminDashboardView from './AdminDashboardView.svelte';
+	import AdminPlaceholderView from './AdminPlaceholderView.svelte';
 
-	// Sidebar menu items list for Mentor Portal
+	// Sidebar menu items list for Admin Portal
 	const menuItems = [
 		{
 			name: 'Dashboard',
 			icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
 		},
 		{
-			name: 'Assigned Students',
+			name: 'Student Management',
 			icon: 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0 1 10.089 21c-2.316 0-4.445-.69-6.22-1.879v-.003a4.125 4.125 0 0 1 7.533-2.493M15 19.128v-.003c0-1.112-.285-2.16-.786-3.07M14.214 16.058A9.396 9.396 0 0 0 10.089 15c-1.47 0-2.854.34-4.082.945M14.214 16.058a9.386 9.386 0 0 1 0 3.07M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5'
 		},
 		{
@@ -35,23 +35,23 @@
 	let isNotificationsOpen = $state(false);
 	let searchQuery = $state('');
 
-	// Mock Notifications for Dr. Rajesh Kumar
+	// Mock Notifications for Administrator (Dr. Rajesh Kumar)
 	const notifications = [
 		{
 			id: 1,
-			text: "Arjun Mehta submitted a new certificate for 'NPTEL Online Certification'.",
+			text: 'New certificate submission from Arjun Mehta awaiting review.',
 			time: '1 hour ago',
 			unread: true
 		},
 		{
 			id: 2,
-			text: 'Priority Flag: 3 pending certificates require urgent verification.',
+			text: 'Priority Alert: 3 certificates are marked high priority.',
 			time: '4 hours ago',
 			unread: true
 		},
 		{
 			id: 3,
-			text: 'Weekly batch summary report is ready for download.',
+			text: 'Monthly batch participation report ready for download.',
 			time: '1 day ago',
 			unread: false
 		}
@@ -62,16 +62,16 @@
 	}
 
 	function handleLogout() {
-		// Mock logout: redirect to home
-		window.location.href = '/';
+		// Admin Logout -> redirect to home page or admin portal login page
+		window.location.href = '/admin-portal';
 	}
 </script>
 
 <svelte:head>
-	<title>Mentor Dashboard | iSPARC IIPS DAVV</title>
+	<title>Admin Dashboard | iSPARC IIPS DAVV</title>
 	<meta
 		name="description"
-		content="iSPARC Mentor Dashboard. Monitor assigned students, review certificate submissions, and track batch analytics."
+		content="iSPARC Admin Dashboard. Monitor student records, verify certificate submissions, and analyze batch statistics."
 	/>
 </svelte:head>
 
@@ -269,7 +269,7 @@
 				</button>
 				<div>
 					<h1 class="text-lg sm:text-xl font-bold text-slate-900 font-serif leading-tight">
-						{currentTab === 'Dashboard' ? 'Welcome Back, Dr. Rajesh Kumar!' : currentTab}
+						{currentTab === 'Dashboard' ? 'Welcome Back, Admin!' : currentTab}
 					</h1>
 					<p
 						class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5"
@@ -381,9 +381,9 @@
 		<!-- Main Content Body -->
 		<main class="flex-grow p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto max-w-7xl mx-auto w-full">
 			{#if currentTab === 'Dashboard'}
-				<MentorDashboardView onTabChange={(tab) => (currentTab = tab)} />
+				<AdminDashboardView onTabChange={(tab) => (currentTab = tab)} />
 			{:else}
-				<MentorPlaceholderView
+				<AdminPlaceholderView
 					tabName={currentTab}
 					onBackToDashboard={() => (currentTab = 'Dashboard')}
 				/>

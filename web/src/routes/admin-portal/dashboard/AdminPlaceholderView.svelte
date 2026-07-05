@@ -13,15 +13,15 @@
 	// Map tab name to description
 	const tabDetails = $derived(() => {
 		switch (tabName) {
-			case 'Assigned Students':
+			case 'Student Management':
 				return {
 					description:
-						'Manage and view detailed profiles, credits, and tracks of all students assigned under your mentorship.'
+						'Browse all registered students, manage their profiles, tracks, and track total credit allocations.'
 				};
 			case 'Certificate Verification':
 				return {
 					description:
-						'Verify, reject, and review certificate uploads submitted by your assigned students.'
+						'Verify, reject, and review certificate uploads submitted by students across all branches.'
 				};
 			case 'Activity Monitoring':
 				return {
@@ -36,7 +36,7 @@
 			default:
 				return {
 					description:
-						'This feature is currently under development as part of the Phase 3 Mentor Module.'
+						'This feature is currently under development as part of the Phase 3 Admin Module.'
 				};
 		}
 	});
@@ -49,7 +49,7 @@
 	<div
 		class="w-20 h-20 bg-slate-50 border border-slate-100 flex items-center justify-center rounded-full mx-auto"
 	>
-		{#if tabName === 'Assigned Students'}
+		{#if tabName === 'Student Management'}
 			<svg
 				class="w-16 h-16 text-slate-400 animate-pulse"
 				fill="none"

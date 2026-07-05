@@ -164,7 +164,7 @@
 			transition:slide={{ duration: 150 }}
 			class="p-4 rounded-xl border shadow-lg flex items-center justify-between gap-3 text-xs font-semibold font-sans transition-all {toast.type ===
 			'success'
-				? 'bg-emerald-55 border-emerald-200 text-emerald-800'
+				? 'bg-emerald-50 border-emerald-200 text-emerald-800'
 				: 'bg-rose-50 border-rose-200 text-rose-800'}"
 		>
 			<div class="flex items-center gap-2">
@@ -206,7 +206,7 @@
 	class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
 	aria-label="Overview Statistics"
 >
-	<!-- Card 1: Assigned Students -->
+	<!-- Card 1: Total Students -->
 	<div
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
@@ -231,14 +231,14 @@
 			</div>
 		</div>
 		<div class="mt-4">
-			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Assigned Students</h3>
+			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Total Students</h3>
 			<p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
 				+2 this semester
 			</p>
 		</div>
 	</div>
 
-	<!-- Card 2: Pending Reviews -->
+	<!-- Card 2: Pending Certificate Reviews -->
 	<div
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
@@ -263,7 +263,9 @@
 			</div>
 		</div>
 		<div class="mt-4">
-			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Pending Reviews</h3>
+			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">
+				Pending Certificate Reviews
+			</h3>
 			<p class="text-[10px] font-bold text-slate-405 mt-1 uppercase tracking-wider">
 				{pendingCertificates.length > 0
 					? `${pendingCertificates.filter((c) => c.priority === 'High').length} marked urgent`
@@ -272,7 +274,7 @@
 		</div>
 	</div>
 
-	<!-- Card 3: Activities Monitored -->
+	<!-- Card 3: Total Activities -->
 	<div
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
@@ -297,14 +299,14 @@
 			</div>
 		</div>
 		<div class="mt-4">
-			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Activities Monitored</h3>
+			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Total Activities</h3>
 			<p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
 				+12 this week
 			</p>
 		</div>
 	</div>
 
-	<!-- Card 4: Completion Rate -->
+	<!-- Card 4: Verification Rate -->
 	<div
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
@@ -329,7 +331,7 @@
 			</div>
 		</div>
 		<div class="mt-4">
-			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Completion Rate</h3>
+			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Verification Rate</h3>
 			<p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
 				+4.2% from last batch
 			</p>
@@ -339,13 +341,13 @@
 
 <!-- ==================== MIDDLE SECTION GRID ==================== -->
 <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-	<!-- Left Side: Recent Student Activities -->
+	<!-- Left Side: Recent Activity Submissions -->
 	<div class="lg:col-span-8 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
 		<div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
 			<div>
-				<h2 class="text-sm font-bold font-serif text-inst-navy">Recent Student Activities</h2>
+				<h2 class="text-sm font-bold font-serif text-inst-navy">Recent Activity Submissions</h2>
 				<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-					Latest updates from assigned students
+					Latest submissions from registered students
 				</p>
 			</div>
 		</div>
@@ -377,7 +379,7 @@
 								<span
 									class="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wide
 									{act.status === 'Completed'
-										? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+										? 'bg-emerald-55 text-emerald-700 border border-emerald-100'
 										: act.status === 'In Progress'
 											? 'bg-blue-50 text-blue-700 border border-blue-100'
 											: 'bg-amber-50 text-amber-700 border border-amber-100'}"
@@ -397,7 +399,7 @@
 		<div>
 			<h2 class="text-sm font-bold font-serif text-inst-navy">Quick Actions</h2>
 			<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-				Navigate directly to mentor tasks
+				Navigate directly to administration tasks
 			</p>
 		</div>
 
@@ -424,12 +426,12 @@
 					</svg>
 				</div>
 				<span class="text-xs font-bold font-serif leading-tight">Review Certificates</span>
-				<span class="text-[9px] font-semibold text-white/70 block mt-1">Verify submissions</span>
+				<span class="text-[9px] font-semibold text-white/70 block mt-1">Verify pending</span>
 			</button>
 
-			<!-- View My Students -->
+			<!-- Manage Students -->
 			<button
-				onclick={() => onTabChange('Assigned Students')}
+				onclick={() => onTabChange('Student Management')}
 				class="flex flex-col items-center justify-center p-4 rounded-xl bg-white text-slate-800 hover:bg-slate-50 text-center shadow-xs transition duration-200 border border-slate-200 select-none focus:outline-none"
 			>
 				<div class="p-2 bg-blue-50 text-blue-600 rounded-lg mb-2 border border-blue-100">
@@ -449,9 +451,9 @@
 					</svg>
 				</div>
 				<span class="text-xs font-bold font-serif text-slate-900 leading-tight"
-					>View My Students</span
+					>Manage Students</span
 				>
-				<span class="text-[9px] font-semibold text-slate-400 block mt-1">Browse assigned</span>
+				<span class="text-[9px] font-semibold text-slate-400 block mt-1">Browse all students</span>
 			</button>
 
 			<!-- Browse Analytics -->
@@ -598,7 +600,7 @@
 		<div>
 			<h2 class="text-sm font-bold font-serif text-inst-navy">Pending Certificate Verification</h2>
 			<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-				{pendingCertificates.length} certificates awaiting your review
+				{pendingCertificates.length} certificates awaiting review
 			</p>
 		</div>
 		{#if pendingCertificates.length > 0}
@@ -629,7 +631,7 @@
 			<div class="space-y-1">
 				<h4 class="text-xs font-bold text-slate-800">All Certificates Processed</h4>
 				<p class="text-[11px] text-slate-400 max-w-sm">
-					Excellent job! There are no student certificates waiting for your review.
+					Excellent job! There are no student certificates waiting for review.
 				</p>
 			</div>
 		</div>
