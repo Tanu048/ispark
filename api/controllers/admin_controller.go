@@ -7,6 +7,10 @@ import (
 	"github.com/iips-oss/ispark/api/utils"
 )
 
+func errJSON(c *fiber.Ctx, status int, msg string) error {
+	return c.Status(status).JSON(fiber.Map{"error": msg})
+}
+
 func AdminLogin(c *fiber.Ctx) error {
 	var input models.AdminLoginInput
 	if err := c.BodyParser(&input); err != nil {
@@ -44,22 +48,40 @@ func AdminLogin(c *fiber.Ctx) error {
 // 1. POST /admin/change-password -> ChangePassword lets a logged-in admin set a new password (used for both voluntary changes and the forced first-login reset flow)
 func ChangePassword(c *fiber.Ctx) error {
 	var input models.ChangePasswordInput
-	if err := c.BodyParser(&input); err != nil || input.NewPassword != input.ConfirmPassword {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input or password mismatch"})
+	if err := c.BodyParser(&input); err != nil {
+		return errJSON(c, fiber.StatusBadRequest, "Cannot parse request body")
+	}
+	if input.CurrentPassword == "" || input.NewPassword == "" || input.ConfirmPassword == "" {
+		return errJSON(c, fiber.StatusBadRequest, "All fields are required")
+	}
+	if input.NewPassword != input.ConfirmPassword {
+		return errJSON(c, fiber.StatusBadRequest, "Passwords do not match")
+	}
+	adminID, ok := c.Locals("admin_id").(string)
+	if !ok || adminID == "" {
+		return errJSON(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 
 	var admin models.Admin
-	adminID := c.Locals("roll_no").(string)
-	if err := config.DB.First(&admin, "admin_id = ?", adminID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Account not found"})
+	if err := config.DB.Where("admin_id = ?", adminID).First(&admin).Error; err != nil {
+		return errJSON(c, fiber.StatusNotFound, "Admin not found")
 	}
 
 	if !utils.CheckPasswordHash(input.CurrentPassword, admin.Password) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Incorrect current password"})
+		return errJSON(c, fiber.StatusUnauthorized, "Current password is incorrect")
 	}
 
-	newHash, _ := utils.HashPassword(input.NewPassword)
-	config.DB.Model(&admin).Update("password", newHash)
+	newHash, err := utils.HashPassword(input.NewPassword)
+	if err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, "Failed to hash password")
+	}
+
+	admin.Password = newHash
+	admin.MustChangePassword = false
+
+	if err := config.DB.Save(&admin).Error; err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, "Failed to update password")
+	}
 
 	return c.JSON(fiber.Map{"message": "Password changed successfully"})
 }

@@ -70,6 +70,16 @@
 		}
 	];
 
+	// Check if admin password is updated or not.
+	function routeAfterLogin(data) {
+		if (data.must_change_password) {
+			goto('/admin-portal/update');
+		} else {
+			loginSuccess = true;
+			setTimeout(() => goto('/admin-portal/dashboard'), 1000);
+		}
+	}
+
 	// Submit Handler
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
@@ -82,34 +92,18 @@
 			const response = await fetch(`${API_BASE_URL}/api/admin/auth/login`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					admin_id: adminId,
-					password: password
-				})
+				body: JSON.stringify({ admin_id: adminId, password: password })
 			});
 
 			const data = await response.json();
 
-			if (response.ok) {
-				const data = await response.json();
-				localStorage.setItem('admin_token', data.access_token);
-
-				// Check if the admin needs to reset their password
-				if (data.must_change_password) {
-					goto('/admin-portal/update');
-				} else {
-					loginSuccess = true;
-					setTimeout(() => goto('/admin-portal/dashboard'), 1000);
-				}
+			if (!response.ok) {
+				throw new Error(data.error || 'Invalid Administrator ID or Password.');
 			}
 
-			// Store the token and trigger success UI
 			localStorage.setItem('admin_token', data.access_token);
-			loginSuccess = true;
 			failedAttempts = 0;
-			setTimeout(() => {
-				goto('/admin-portal/dashboard'); // Route where the console will be built
-			}, 1500);
+			routeAfterLogin(data);
 		} catch (err) {
 			failedAttempts += 1;
 			if (failedAttempts >= 5) {
