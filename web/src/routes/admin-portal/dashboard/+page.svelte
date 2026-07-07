@@ -3,6 +3,7 @@
 	import AdminDashboardView from './AdminDashboardView.svelte';
 	import AdminPlaceholderView from './AdminPlaceholderView.svelte';
 	import ActivityMonitoringView from './ActivityMonitoringView.svelte';
+	import AdminStudentManagementView from './AdminStudentManagementView.svelte';
 
 	// Sidebar menu items list for Admin Portal
 	const menuItems = [
@@ -93,7 +94,7 @@
 				<span class="text-xl font-bold tracking-tight text-slate-900 font-serif"
 					>i<span class="text-[#881B1B]">SPARC</span></span
 				>
-				<span class="text-[9px] font-bold text-slate-400 tracking-wider uppercase -mt-1"
+				<span class="text-[9px] font-bold text-slate-600 tracking-wider uppercase -mt-1"
 					>IIPS DAVV CELL</span
 				>
 			</div>
@@ -107,7 +108,7 @@
 					class="w-full flex items-center gap-3.5 px-4 py-3 rounded-lg text-[13px] font-bold tracking-wide transition-all duration-200 {currentTab ===
 					item.name
 						? 'bg-[#881B1B]/10 text-[#881B1B] border-l-[3px] border-[#881B1B] rounded-l-none'
-						: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}"
+						: 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'}"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -128,7 +129,7 @@
 		<div class="p-4 border-t border-slate-100">
 			<button
 				onclick={handleLogout}
-				class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+				class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -176,7 +177,7 @@
 						<span class="text-xl font-bold tracking-tight text-slate-900 font-serif"
 							>i<span class="text-[#881B1B]">SPARC</span></span
 						>
-						<span class="text-[9px] font-bold text-slate-400 tracking-wider uppercase -mt-1"
+						<span class="text-[9px] font-bold text-slate-600 tracking-wider uppercase -mt-1"
 							>IIPS DAVV CELL</span
 						>
 					</div>
@@ -209,7 +210,7 @@
 						class="w-full flex items-center gap-3.5 px-4 py-3 rounded-lg text-[13px] font-bold tracking-wide transition-all duration-200 {currentTab ===
 						item.name
 							? 'bg-[#881B1B]/10 text-[#881B1B] border-l-[3px] border-[#881B1B] rounded-l-none'
-							: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}"
+							: 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'}"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -232,7 +233,7 @@
 						handleLogout();
 						toggleMobileSidebar();
 					}}
-					class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+					class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -395,6 +396,8 @@
 				<AdminDashboardView onTabChange={(tab) => (currentTab = tab)} />
 			{:else if currentTab === 'Activity Monitoring'}
 				<ActivityMonitoringView />
+			{:else if currentTab === 'Student Management'}
+				<AdminStudentManagementView />
 			{:else}
 				<AdminPlaceholderView
 					tabName={currentTab}
