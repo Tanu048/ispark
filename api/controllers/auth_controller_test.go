@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,8 +55,8 @@ func solveCaptcha(question string) (string, error) {
 
 func TestAuthFlow(t *testing.T) {
 	// Set test environment variables
-	os.Setenv("JWT_SECRET", strings.Repeat("test-jwt-", 4))
-	os.Setenv("JWT_REFRESH_SECRET", strings.Repeat("test-refresh-jwt-", 4))
+	t.Setenv("JWT_SECRET", strings.Repeat("test-jwt-", 4))
+	t.Setenv("JWT_REFRESH_SECRET", strings.Repeat("test-refresh-jwt-", 4))
 
 	// Initialize test DB
 	SetupTestDB(t)

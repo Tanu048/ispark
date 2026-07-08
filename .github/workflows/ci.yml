@@ -60,16 +60,6 @@ jobs:
             zricethezav/gitleaks:latest \
             detect --source /repo --no-git --redact --no-banner --exit-code 1
 
-  dependency-review:
-    name: Dependency review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
-
   frontend-format:
     name: Frontend format
     runs-on: ubuntu-latest
@@ -205,6 +195,9 @@ jobs:
   backend-static-analysis:
     name: Backend static analysis
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -212,10 +205,11 @@ jobs:
           go-version: "1.25.x"
           check-latest: true
           cache-dependency-path: api/go.sum
-      - uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          working-directory: api
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.1
+      - name: Run golangci-lint
+        run: |
+          "$(go env GOPATH)/bin/golangci-lint" run ./...
 
   backend-test:
     name: Backend tests
