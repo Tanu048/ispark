@@ -381,7 +381,78 @@
 					</p>
 				</div>
 				
-				<!-- Main Dashboard Placeholder for Step 1 -->
+				<!-- Dashboard Statistics Cards Grid (Step 2) -->
+				<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" aria-label="Super Admin metrics overview">
+					<!-- Card 1: Total Students -->
+					<div class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
+						<div class="flex items-center justify-between">
+							<span class="text-2xl font-bold font-serif text-slate-900">1,248</span>
+							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+								<!-- People icon -->
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0 1 10.089 21c-2.316 0-4.445-.69-6.22-1.879v-.003a4.125 4.125 0 0 1 7.533-2.493M15 19.128v-.003c0-1.112-.285-2.16-.786-3.07M14.214 16.058A9.396 9.396 0 0 0 10.089 15c-1.47 0-2.854.34-4.082.945M14.214 16.058a9.386 9.386 0 0 1 0 3.07" />
+								</svg>
+							</div>
+						</div>
+						<div class="mt-4">
+							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Students</h3>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+32 this semester</span>
+						</div>
+					</div>
+
+					<!-- Card 2: Total Admins -->
+					<div class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
+						<div class="flex items-center justify-between">
+							<span class="text-2xl font-bold font-serif text-slate-900">87</span>
+							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+								<!-- Single user admin icon -->
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+								</svg>
+							</div>
+						</div>
+						<div class="mt-4">
+							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Admins</h3>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+5 this month</span>
+						</div>
+					</div>
+
+					<!-- Card 3: Total Activities -->
+					<div class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
+						<div class="flex items-center justify-between">
+							<span class="text-2xl font-bold font-serif text-slate-900">3,412</span>
+							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+								<!-- Graph icon -->
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+								</svg>
+							</div>
+						</div>
+						<div class="mt-4">
+							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Activities</h3>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+110 this week</span>
+						</div>
+					</div>
+
+					<!-- Card 4: Active Tracks -->
+					<div class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
+						<div class="flex items-center justify-between">
+							<span class="text-2xl font-bold font-serif text-slate-900">6</span>
+							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+								<!-- Stack icon -->
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L21.75 12l-4.179 2.25m0 0L21.75 16.5l-9.75 5.25-9.75-5.25L6.429 14.25m11.142 0L12 16.5m0-13.5L21.75 7.5 12 12.75 2.25 7.5 12 3z" />
+								</svg>
+							</div>
+						</div>
+						<div class="mt-4">
+							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Tracks</h3>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block">2 new this year</span>
+						</div>
+					</div>
+				</section>
+
+				<!-- Main Dashboard Placeholder for remaining steps -->
 				<div class="p-8 border border-dashed border-slate-350 bg-white rounded-xl text-center space-y-4">
 					<div class="w-12 h-12 rounded-full bg-[#881B1B]/10 text-[#881B1B] flex items-center justify-center mx-auto">
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
@@ -392,7 +463,7 @@
 					<div class="space-y-1">
 						<h3 class="font-bold text-slate-800 text-sm">Dashboard Widgets Configuration Pending</h3>
 						<p class="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-							Dashboard summary metrics, user activity logs, quick action shortcuts, and logs will be populated in subsequent steps.
+							User Management registry table, Quick Actions panels, and Recent System Activity logs will be populated in subsequent steps.
 						</p>
 					</div>
 				</div>
