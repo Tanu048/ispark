@@ -63,21 +63,104 @@
 		}
 	];
 
-	// Mock Recent Users data (Step 3)
-	const recentUsers = [
+	// Mock Recent Users data (Step 3) - using Svelte 5 reactive states
+	let recentUsers = $state([
 		{ name: 'Rahul Sharma', id: 'ENR024001', role: 'Student', dept: 'Computer Science', status: 'Active' },
 		{ name: 'Dr. Priya Patel', id: 'ADM024010', role: 'Admin', dept: 'Electronics & Comm.', status: 'Active' },
 		{ name: 'Arjun Desai', id: 'ENR024008', role: 'Student', dept: 'Data Science', status: 'Pending' },
 		{ name: 'Sneha Kumar', id: 'ENR024015', role: 'Student', dept: 'Mechanical Engg.', status: 'Active' },
 		{ name: 'Dr. Vikram Singh', id: 'ADM024003', role: 'Admin', dept: 'Civil Engineering', status: 'Active' }
-	];
+	]);
+
+	// Mock Recent System Activities (Step 5)
+	let recentLogs = $state([
+		{ activity: 'New student account created', type: 'User Added', performedBy: 'Super Admin', date: 'Jun 27, 2026', status: 'Completed' },
+		{ activity: 'Activity "Blood Donation Camp" published', type: 'Activity Created', performedBy: 'Super Admin', date: 'Jun 25, 2026', status: 'Completed' },
+		{ activity: 'Track "Interdisciplinary" updated', type: 'Track Updated', performedBy: 'Super Admin', date: 'Jun 24, 2026', status: 'Completed' },
+		{ activity: 'Platform-wide announcement published', type: 'Announcement', performedBy: 'Super Admin', date: 'Jun 22, 2026', status: 'Completed' },
+		{ activity: 'Monthly activity report generated', type: 'Report', performedBy: 'Super Admin', date: 'Jun 20, 2026', status: 'Completed' },
+		{ activity: 'Admin assigned to Data Science track', type: 'Track Updated', performedBy: 'Super Admin', date: 'Jun 18, 2026', status: 'Completed' }
+	]);
+
+	// Action modals states (Step 6)
+	let isCreateUserModalOpen = $state(false);
+	let isCreateActivityModalOpen = $state(false);
+	let isCreateTrackModalOpen = $state(false);
+	let isGenerateReportModalOpen = $state(false);
+
+	// Action form states
+	let newUserName = $state('');
+	let newUserRole = $state('Student');
+	let newUserDept = $state('');
+	let newActivityName = $state('');
+	let newActivityCredits = $state(5);
+	let newTrackName = $state('');
+
+	// Toast states
+	interface Toast { id: number; message: string; }
+	let toasts = $state<Toast[]>([]);
+	let toastCounter = 0;
+
+	function triggerToast(message: string) {
+		const id = toastCounter++;
+		toasts = [...toasts, { id, message }];
+		setTimeout(() => {
+			toasts = toasts.filter(t => t.id !== id);
+		}, 3000);
+	}
+
+	function handleCreateUser(e: Event) {
+		e.preventDefault();
+		if (!newUserName.trim()) return;
+		const generatedId = newUserRole === 'Student' ? `ENR024${Math.floor(100 + Math.random() * 900)}` : `ADM024${Math.floor(100 + Math.random() * 900)}`;
+		recentUsers = [
+			{ name: newUserName, id: generatedId, role: newUserRole, dept: newUserDept || 'Computer Science', status: 'Active' },
+			...recentUsers
+		];
+		recentLogs = [
+			{ activity: `New ${newUserRole.toLowerCase()} account created for ${newUserName}`, type: 'User Added', performedBy: 'Super Admin', date: 'Jun 28, 2026', status: 'Completed' },
+			...recentLogs
+		];
+		triggerToast(`User "${newUserName}" created successfully!`);
+		newUserName = '';
+		newUserDept = '';
+		isCreateUserModalOpen = false;
+	}
+
+	function handleCreateActivity(e: Event) {
+		e.preventDefault();
+		if (!newActivityName.trim()) return;
+		recentLogs = [
+			{ activity: `Activity "${newActivityName}" published`, type: 'Activity Created', performedBy: 'Super Admin', date: 'Jun 28, 2026', status: 'Completed' },
+			...recentLogs
+		];
+		triggerToast(`Activity "${newActivityName}" published successfully!`);
+		newActivityName = '';
+		isCreateActivityModalOpen = false;
+	}
+
+	function handleCreateTrack(e: Event) {
+		e.preventDefault();
+		if (!newTrackName.trim()) return;
+		recentLogs = [
+			{ activity: `Track "${newTrackName}" updated`, type: 'Track Updated', performedBy: 'Super Admin', date: 'Jun 28, 2026', status: 'Completed' },
+			...recentLogs
+		];
+		triggerToast(`Track "${newTrackName}" created successfully!`);
+		newTrackName = '';
+		isCreateTrackModalOpen = false;
+	}
+
+	function handleGenerateReport() {
+		triggerToast('System activity report generation initiated. Downloading...');
+		isGenerateReportModalOpen = false;
+	}
 
 	function toggleMobileSidebar() {
 		isMobileSidebarOpen = !isMobileSidebarOpen;
 	}
 
 	function handleLogout() {
-		// Super Admin Logout -> redirect to home page
 		window.location.href = '/';
 	}
 </script>
@@ -90,10 +173,10 @@
 	/>
 </svelte:head>
 
-<div class="min-h-screen bg-[#F7F6F3] text-slate-800 flex font-sans">
+<div class="min-h-screen bg-[#F7F6F3] text-slate-800 flex font-sans animate-fade-in">
 	<!-- ==================== SIDEBAR ==================== -->
 	<!-- Desktop Sidebar -->
-	<aside class="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 h-screen sticky top-0 shrink-0">
+	<aside class="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 h-screen sticky top-0 shrink-0 select-none">
 		<!-- Logo area -->
 		<div class="h-[72px] flex items-center px-6 gap-3.5 border-b border-slate-100">
 			<!-- Red square badge with white SA -->
@@ -258,7 +341,7 @@
 	<!-- ==================== MAIN WORKSPACE ==================== -->
 	<div class="flex-grow flex flex-col min-w-0">
 		<!-- Top Navigation Header -->
-		<header class="bg-white border-b border-slate-200 h-[72px] flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30">
+		<header class="bg-white border-b border-slate-200 h-[72px] flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30 select-none">
 			<!-- Mobile sidebar toggle -->
 			<div class="flex items-center gap-3">
 				<button
@@ -294,7 +377,7 @@
 					<input
 						type="text"
 						bind:value={searchQuery}
-						placeholder="Search..."
+						placeholder="Search students..."
 						class="pl-4 pr-9 py-2 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-slate-350 focus:bg-white w-52 transition-all focus:w-60"
 					/>
 					<span class="absolute right-3 text-slate-400">
@@ -386,7 +469,7 @@
 				<div class="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-xs space-y-2">
 					<h2 class="text-2xl font-bold font-serif text-[#0B1535]">Welcome Back, Super Admin!</h2>
 					<p class="text-xs text-slate-500 font-medium">
-						Academic Year 2025–26 &middot; Tuesday, 23 June 2026
+						Academic Year 2025–26 &middot; Saturday, 27 June 2026
 					</p>
 				</div>
 				
@@ -396,7 +479,7 @@
 					<div class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
 						<div class="flex items-center justify-between">
 							<span class="text-2xl font-bold font-serif text-slate-900">1,248</span>
-							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">
 								<!-- People icon -->
 								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0 1 10.089 21c-2.316 0-4.445-.69-6.22-1.879v-.003a4.125 4.125 0 0 1 7.533-2.493M15 19.128v-.003c0-1.112-.285-2.16-.786-3.07M14.214 16.058A9.396 9.396 0 0 0 10.089 15c-1.47 0-2.854.34-4.082.945M14.214 16.058a9.386 9.386 0 0 1 0 3.07" />
@@ -412,7 +495,7 @@
 					<!-- Card 2: Total Admins -->
 					<div class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
 						<div class="flex items-center justify-between">
-							<span class="text-2xl font-bold font-serif text-slate-900">87</span>
+							<span class="text-2xl font-bold font-serif text-slate-900">{recentUsers.filter(u => u.role === 'Admin').length + 85}</span>
 							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
 								<!-- Single user admin icon -->
 								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
@@ -421,7 +504,7 @@
 							</div>
 						</div>
 						<div class="mt-4">
-							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Admins</h3>
+							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Mentors</h3>
 							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+5 this month</span>
 						</div>
 					</div>
@@ -461,7 +544,7 @@
 					</div>
 				</section>
 
-				<!-- Middle Grid section (Step 3) -->
+				<!-- Middle Grid section (Step 3 & 4) -->
 				<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 					<!-- User Management Overview (lg:col-span-2) -->
 					<div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
@@ -496,7 +579,7 @@
 														? 'bg-slate-50 text-slate-650 border-slate-200'
 														: 'bg-blue-50 text-blue-700 border-blue-100'}"
 												>
-													{user.role}
+													{user.role === 'Admin' ? 'Mentor' : user.role}
 												</span>
 											</td>
 											<td class="py-4 px-5 text-slate-500 font-semibold">{user.dept}</td>
@@ -517,23 +600,141 @@
 						</div>
 					</div>
 
-					<!-- Right Column placeholder: Quick Actions (Step 4 placeholder) -->
+					<!-- Quick Actions Panel (Step 4) -->
 					<div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
 						<h3 class="text-sm font-bold font-serif text-slate-905">Quick Actions</h3>
 						<div class="h-px bg-slate-100 my-2"></div>
-						<div class="p-6 border border-dashed border-slate-350 bg-slate-50/50 rounded-xl text-center text-xs text-slate-400 leading-relaxed font-semibold">
-							Quick action buttons (Create User, Create Activity, Create Track, Generate Report) will be added here in Step 4.
+						
+						<div class="grid grid-cols-2 gap-4 select-none">
+							<!-- Button 1: Create User (Solid Red) -->
+							<button
+								onclick={() => (isCreateUserModalOpen = true)}
+								class="p-4 bg-[#881B1B] hover:bg-[#881B1B]/95 text-white rounded-xl shadow-xs text-left space-y-3 transition duration-200 focus:outline-none flex flex-col justify-between h-[110px]"
+							>
+								<div class="p-2 bg-white/10 rounded-lg w-fit">
+									<!-- User plus icon -->
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235A8.902 8.902 0 0110 18a8.902 8.902 0 016 1.235c.19.115.3.322.3.54v.725c0 .19-.153.344-.344.344H4.344A.344.344 0 014 20.5v-.725c0-.218.11-.425.3-.54z" />
+									</svg>
+								</div>
+								<div>
+									<div class="font-extrabold text-xs block font-sans">Create User</div>
+									<div class="text-[9px] text-white/70 font-semibold block mt-0.5 font-sans leading-tight">Add student or mentor</div>
+								</div>
+							</button>
+
+							<!-- Button 2: Create Activity -->
+							<button
+								onclick={() => (isCreateActivityModalOpen = true)}
+								class="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl text-left space-y-3 transition duration-200 focus:outline-none flex flex-col justify-between h-[110px]"
+							>
+								<div class="p-2 bg-blue-50 text-blue-600 rounded-lg w-fit border border-blue-100">
+									<!-- Activity graph icon -->
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 015.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+									</svg>
+								</div>
+								<div>
+									<div class="font-extrabold text-xs text-slate-800 block font-sans">Create Activity</div>
+									<div class="text-[9px] text-slate-400 font-semibold block mt-0.5 font-sans leading-tight">Publish new activity</div>
+								</div>
+							</button>
+
+							<!-- Button 3: Create Track -->
+							<button
+								onclick={() => (isCreateTrackModalOpen = true)}
+								class="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl text-left space-y-3 transition duration-200 focus:outline-none flex flex-col justify-between h-[110px]"
+							>
+								<div class="p-2 bg-blue-50 text-blue-600 rounded-lg w-fit border border-blue-100">
+									<!-- Track icon -->
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L21.75 12l-4.179 2.25m0 0L21.75 16.5l-9.75 5.25-9.75-5.25L6.429 14.25m11.142 0L12 16.5m0-13.5L21.75 7.5 12 12.75 2.25 7.5 12 3z" />
+									</svg>
+								</div>
+								<div>
+									<div class="font-extrabold text-xs text-slate-800 block font-sans">Create Track</div>
+									<div class="text-[9px] text-slate-400 font-semibold block mt-0.5 font-sans leading-tight">Set up a new track</div>
+								</div>
+							</button>
+
+							<!-- Button 4: Generate Report -->
+							<button
+								onclick={() => (isGenerateReportModalOpen = true)}
+								class="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl text-left space-y-3 transition duration-200 focus:outline-none flex flex-col justify-between h-[110px]"
+							>
+								<div class="p-2 bg-blue-50 text-blue-600 rounded-lg w-fit border border-blue-100">
+									<!-- Document download icon -->
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+									</svg>
+								</div>
+								<div>
+									<div class="font-extrabold text-xs text-slate-800 block font-sans">Generate Report</div>
+									<div class="text-[9px] text-slate-400 font-semibold block mt-0.5 font-sans leading-tight">Download activity data</div>
+								</div>
+							</button>
 						</div>
 					</div>
 				</div>
 
-				<!-- Recent System Activities Section Placeholder (Step 5 placeholder) -->
-				<div class="p-8 border border-dashed border-slate-350 bg-white rounded-xl text-center space-y-2">
-					<h3 class="font-bold text-slate-800 text-sm">System Logs & Activities Pending</h3>
-					<p class="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-						Super admin event logs detailing system activity logs (audit trailing, announcement tracking, and report dispatches) will be added here in Step 5.
-					</p>
-				</div>
+				<!-- Recent System Activities Table Section (Step 5) -->
+				<section class="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+					<div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/20 select-none">
+						<div class="flex items-center gap-2">
+							<h3 class="text-sm font-bold font-serif text-slate-905">Recent System Activities</h3>
+							<span class="px-2 py-0.5 bg-rose-50 text-rose-705 font-extrabold text-[10px] uppercase rounded-md border border-rose-100">
+								+ 6 this week
+							</span>
+						</div>
+						<button onclick={() => triggerToast('Navigating to full audit log...')} class="text-[#881B1B] hover:underline text-xs font-bold uppercase tracking-wider">
+							View Full Log
+						</button>
+					</div>
+
+					<div class="overflow-x-auto">
+						<table class="w-full text-left border-collapse">
+							<thead>
+								<tr class="border-b border-slate-150 bg-slate-50/50 text-[10px] font-extrabold text-slate-405 uppercase tracking-wider">
+									<th class="py-3.5 px-5">Activity</th>
+									<th class="py-3.5 px-5">Type</th>
+									<th class="py-3.5 px-5">Performed By</th>
+									<th class="py-3.5 px-5">Date</th>
+									<th class="py-3.5 px-5">Status</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-slate-100 text-xs font-sans">
+								{#each recentLogs as log}
+									<tr class="hover:bg-slate-50/30 transition-colors">
+										<td class="py-4 px-5 font-bold text-slate-800">{log.activity}</td>
+										<td class="py-4 px-5">
+											<span class="inline-flex items-center px-2.5 py-0.5 text-[9px] font-bold uppercase rounded-md border
+												{log.type === 'User Added' ? 'bg-slate-100 text-slate-650 border-slate-200' :
+												 log.type === 'Activity Created' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+												 log.type === 'Track Updated' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+												 log.type === 'Announcement' ? 'bg-amber-50 text-amber-705 border-amber-100' :
+												 'bg-emerald-50 text-emerald-700 border-emerald-100'}"
+											>
+												{log.type}
+											</span>
+										</td>
+										<td class="py-4 px-5 text-slate-600 font-semibold">{log.performedBy}</td>
+										<td class="py-4 px-5 text-slate-500 font-semibold">{log.date}</td>
+										<td class="py-4 px-5">
+											<span class="inline-flex items-center gap-1.5 font-bold text-emerald-600">
+												<span class="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0"></span>
+												{log.status}
+											</span>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+
+					<div class="p-4 border-t border-slate-100 bg-slate-50/30 text-slate-500 font-semibold text-[11px] select-none">
+						<span>Showing {recentLogs.length} of {recentLogs.length} recent system activities</span>
+					</div>
+				</section>
 			{:else}
 				<!-- Under Construction placeholder for other tabs -->
 				<div class="bg-white border border-slate-200 rounded-xl p-8 sm:p-12 text-center max-w-2xl mx-auto my-12 shadow-xs space-y-6">
@@ -557,5 +758,202 @@
 				</div>
 			{/if}
 		</main>
+
+		<!-- ==================== TOAST NOTIFICATION CONTAINER (Step 6) ==================== -->
+		<div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm">
+			{#each toasts as toast (toast.id)}
+				<div transition:slide={{ duration: 150 }} class="p-4 bg-slate-800 border border-slate-700 text-white rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold font-sans">
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-emerald-400">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12Z" />
+					</svg>
+					<span>{toast.message}</span>
+				</div>
+			{/each}
+		</div>
+
+		<!-- ==================== MODALS LIST (Step 6) ==================== -->
+		<!-- Create User Modal -->
+		{#if isCreateUserModalOpen}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div onclick={(e) => { if (e.target === e.currentTarget) isCreateUserModalOpen = false; }} transition:fade={{ duration: 150 }} class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+				<form onsubmit={handleCreateUser} class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+					<div class="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/30">
+						<div>
+							<h3 class="text-sm font-bold font-serif text-slate-900">Create New User</h3>
+							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Register Student or Mentor</p>
+						</div>
+						<button type="button" onclick={() => (isCreateUserModalOpen = false)} aria-label="Close modal" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="p-6 space-y-4">
+						<div class="flex flex-col gap-1.5">
+							<label for="new-username" class="text-[10px] font-extrabold text-slate-650 tracking-wider">FULL NAME *</label>
+							<input id="new-username" type="text" bind:value={newUserName} placeholder="e.g. Amit Kumar" required class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355" />
+						</div>
+
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-col gap-1.5">
+								<label for="new-user-role" class="text-[10px] font-extrabold text-slate-650 tracking-wider">ROLE *</label>
+								<select id="new-user-role" bind:value={newUserRole} class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-850 bg-white focus:outline-none focus:border-slate-355">
+									<option value="Student">Student</option>
+									<option value="Admin">Mentor</option>
+								</select>
+							</div>
+
+							<div class="flex flex-col gap-1.5">
+								<label for="new-user-dept" class="text-[10px] font-extrabold text-slate-650 tracking-wider">DEPARTMENT</label>
+								<input id="new-user-dept" type="text" bind:value={newUserDept} placeholder="e.g. Computer Science" class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355" />
+							</div>
+						</div>
+					</div>
+
+					<div class="p-5 border-t border-slate-150 flex items-center justify-end gap-2.5 bg-slate-50/30">
+						<button type="button" onclick={() => (isCreateUserModalOpen = false)} class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Cancel
+						</button>
+						<button type="submit" class="px-4 py-2 bg-[#881B1B] hover:bg-[#881B1B]/90 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Create User
+						</button>
+					</div>
+				</form>
+			</div>
+		{/if}
+
+		<!-- Create Activity Modal -->
+		{#if isCreateActivityModalOpen}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div onclick={(e) => { if (e.target === e.currentTarget) isCreateActivityModalOpen = false; }} transition:fade={{ duration: 150 }} class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+				<form onsubmit={handleCreateActivity} class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+					<div class="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/30">
+						<div>
+							<h3 class="text-sm font-bold font-serif text-slate-900">Publish New Activity</h3>
+							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Register Extracurricular Activity</p>
+						</div>
+						<button type="button" onclick={() => (isCreateActivityModalOpen = false)} aria-label="Close modal" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="p-6 space-y-4">
+						<div class="flex flex-col gap-1.5">
+							<label for="new-act-name" class="text-[10px] font-extrabold text-slate-655 tracking-wider">ACTIVITY NAME *</label>
+							<input id="new-act-name" type="text" bind:value={newActivityName} placeholder="e.g. Cyber Security Summit" required class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355" />
+						</div>
+
+						<div class="flex flex-col gap-1.5">
+							<label for="new-act-credits" class="text-[10px] font-extrabold text-slate-655 tracking-wider">CREDITS OFFERED *</label>
+							<input id="new-act-credits" type="number" bind:value={newActivityCredits} min="1" max="50" required class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355" />
+						</div>
+					</div>
+
+					<div class="p-5 border-t border-slate-150 flex items-center justify-end gap-2.5 bg-slate-50/30">
+						<button type="button" onclick={() => (isCreateActivityModalOpen = false)} class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Cancel
+						</button>
+						<button type="submit" class="px-4 py-2 bg-[#881B1B] hover:bg-[#881B1B]/90 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Publish Activity
+						</button>
+					</div>
+				</form>
+			</div>
+		{/if}
+
+		<!-- Create Track Modal -->
+		{#if isCreateTrackModalOpen}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div onclick={(e) => { if (e.target === e.currentTarget) isCreateTrackModalOpen = false; }} transition:fade={{ duration: 150 }} class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+				<form onsubmit={handleCreateTrack} class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+					<div class="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/30">
+						<div>
+							<h3 class="text-sm font-bold font-serif text-slate-900">Create New Track</h3>
+							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Add specialized extracurricular track</p>
+						</div>
+						<button type="button" onclick={() => (isCreateTrackModalOpen = false)} aria-label="Close modal" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="p-6 space-y-4">
+						<div class="flex flex-col gap-1.5">
+							<label for="new-track-name" class="text-[10px] font-extrabold text-slate-655 tracking-wider">TRACK TITLE *</label>
+							<input id="new-track-name" type="text" bind:value={newTrackName} placeholder="e.g. Social Entrepreneurship & Innovations" required class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355" />
+						</div>
+					</div>
+
+					<div class="p-5 border-t border-slate-150 flex items-center justify-end gap-2.5 bg-slate-50/30">
+						<button type="button" onclick={() => (isCreateTrackModalOpen = false)} class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Cancel
+						</button>
+						<button type="submit" class="px-4 py-2 bg-[#881B1B] hover:bg-[#881B1B]/90 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Create Track
+						</button>
+					</div>
+				</form>
+			</div>
+		{/if}
+
+		<!-- Generate Report Modal -->
+		{#if isGenerateReportModalOpen}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div onclick={(e) => { if (e.target === e.currentTarget) isGenerateReportModalOpen = false; }} transition:fade={{ duration: 150 }} class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+				<div class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+					<div class="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/30">
+						<div>
+							<h3 class="text-sm font-bold font-serif text-slate-905">Generate System Report</h3>
+							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Export extracurricular summaries</p>
+						</div>
+						<button type="button" onclick={() => (isGenerateReportModalOpen = false)} aria-label="Close modal" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="p-6 space-y-4">
+						<div class="flex flex-col gap-1.5">
+							<label for="report-type" class="text-[10px] font-extrabold text-slate-655 tracking-wider">REPORT TYPE</label>
+							<select id="report-type" class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white focus:outline-none focus:border-slate-355">
+								<option value="activities">Student Activities Summary</option>
+								<option value="credits">Credit Distribution Ledger</option>
+								<option value="audits">Administrative Audit Trails</option>
+							</select>
+						</div>
+
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-col gap-1.5">
+								<label for="report-from" class="text-[10px] font-extrabold text-slate-655 tracking-wider">START DATE</label>
+								<input id="report-from" type="date" value="2026-06-01" class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355" />
+							</div>
+							<div class="flex flex-col gap-1.5">
+								<label for="report-to" class="text-[10px] font-extrabold text-slate-655 tracking-wider">END DATE</label>
+								<input id="report-to" type="date" value="2026-06-30" class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355" />
+							</div>
+						</div>
+					</div>
+
+					<div class="p-5 border-t border-slate-150 flex items-center justify-end gap-2.5 bg-slate-50/30">
+						<button type="button" onclick={() => (isGenerateReportModalOpen = false)} class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Cancel
+						</button>
+						<button type="button" onclick={handleGenerateReport} class="px-4 py-2 bg-[#881B1B] hover:bg-[#881B1B]/90 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none">
+							Export Data
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 	</div>
 </div>
