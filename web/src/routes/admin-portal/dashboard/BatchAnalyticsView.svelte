@@ -1,5 +1,4 @@
 <script lang="ts">
-	// ---- Mock data (swap for real API calls) ----
 	const summary = {
 		assignedBatches: 3,
 		totalStudents: 342,
@@ -7,7 +6,8 @@
 		defaulters: 64
 	};
 
-	const batches = [
+	// Reactive state (runes) so edits update the UI and the modals
+	let batches = $state([
 		{
 			name: 'IT 2025',
 			students: 120,
@@ -38,7 +38,7 @@
 			pendingCerts: 13,
 			status: 'At Risk'
 		}
-	];
+	]);
 
 	const alerts = [
 		{
@@ -95,16 +95,74 @@
 		batches.filter((b) => b.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
 	);
 
+	// ---------------- View modal ----------------
+	let viewingBatch = $state<(typeof batches)[number] | null>(null);
+
+	function openView(batch: (typeof batches)[number]) {
+		viewingBatch = batch;
+	}
+
+	function closeView() {
+		viewingBatch = null;
+	}
+
+	// ---------------- Edit modal ----------------
+	let editingBatch = $state<(typeof batches)[number] | null>(null);
+	let editingIndex = $state<number | null>(null);
+
+	const statusOptions = ['Excellent', 'Good', 'At Risk'];
+
+	function openEdit(batch: (typeof batches)[number]) {
+		editingIndex = batches.indexOf(batch);
+		editingBatch = { ...batch };
+	}
+
+	function closeEdit() {
+		editingBatch = null;
+		editingIndex = null;
+	}
+
+	function saveEdit() {
+		if (editingBatch === null || editingIndex === null) return;
+
+		const cleaned = {
+			...editingBatch,
+			name: editingBatch.name.trim() || batches[editingIndex].name,
+			students: Math.max(0, Math.round(Number(editingBatch.students) || 0)),
+			pd: Math.max(0, Math.round(Number(editingBatch.pd) || 0)),
+			sb: Math.max(0, Math.round(Number(editingBatch.sb) || 0)),
+			compliance: Math.max(0, Math.min(100, Math.round(Number(editingBatch.compliance) || 0))),
+			defaulters: Math.max(0, Math.round(Number(editingBatch.defaulters) || 0)),
+			pendingCerts: Math.max(0, Math.round(Number(editingBatch.pendingCerts) || 0))
+		};
+
+		batches[editingIndex] = cleaned;
+		batches = [...batches]; // trigger reactivity
+
+		closeEdit();
+	}
+
 	function statusStyles(status: string) {
 		if (status === 'Excellent')
 			return {
 				pill: 'bg-emerald-50 text-emerald-700',
 				dot: 'bg-emerald-500',
-				bar: 'bg-emerald-500'
+				bar: 'bg-emerald-500',
+				text: 'text-emerald-600'
 			};
 		if (status === 'Good')
-			return { pill: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', bar: 'bg-blue-500' };
-		return { pill: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500', bar: 'bg-amber-500' };
+			return {
+				pill: 'bg-blue-50 text-blue-700',
+				dot: 'bg-blue-500',
+				bar: 'bg-blue-500',
+				text: 'text-blue-600'
+			};
+		return {
+			pill: 'bg-amber-50 text-amber-700',
+			dot: 'bg-amber-500',
+			bar: 'bg-amber-500',
+			text: 'text-amber-600'
+		};
 	}
 
 	function toneClasses(tone: string) {
@@ -320,6 +378,7 @@
 								<div class="flex items-center gap-1.5">
 									<button
 										type="button"
+										onclick={() => openView(batch)}
 										aria-label="View {batch.name}"
 										class="w-7 h-7 rounded-md bg-[#881B1B]/10 text-[#881B1B] flex items-center justify-center hover:bg-[#881B1B]/20 transition-colors"
 									>
@@ -345,6 +404,7 @@
 									</button>
 									<button
 										type="button"
+										onclick={() => openEdit(batch)}
 										aria-label="Edit {batch.name}"
 										class="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 transition-colors"
 									>
@@ -483,3 +543,270 @@
 		</div>
 	</div>
 </div>
+
+<!-- ==================== VIEW MODAL ==================== -->
+{#if viewingBatch}
+	{@const styles = statusStyles(viewingBatch.status)}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={closeView}></div>
+
+		<div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+			<div class="flex items-start justify-between px-6 py-5 border-b border-slate-200">
+				<div>
+					<h2 class="text-lg font-bold font-serif text-slate-900">Batch Overview Details</h2>
+					<p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-1">
+						Batch: {viewingBatch.name}
+					</p>
+				</div>
+				<button
+					onclick={closeView}
+					aria-label="Close"
+					class="text-slate-400 hover:text-slate-600 transition-colors"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+						class="w-5 h-5"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			<div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+				<div class="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-2 gap-4">
+					<div>
+						<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Batch Name</p>
+						<p class="text-sm font-bold text-slate-900 mt-1">{viewingBatch.name}</p>
+					</div>
+					<div>
+						<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Status</p>
+						<p class="text-sm font-bold mt-1 {styles.text}">{viewingBatch.status}</p>
+					</div>
+					<div>
+						<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">PD Credits</p>
+						<p class="text-sm font-bold text-slate-900 mt-1">{viewingBatch.pd}</p>
+					</div>
+					<div>
+						<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">SB Credits</p>
+						<p class="text-sm font-bold text-slate-900 mt-1">{viewingBatch.sb}</p>
+					</div>
+				</div>
+
+				<div
+					class="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-3 divide-x divide-slate-200 text-center"
+				>
+					<div>
+						<p class="text-2xl font-bold font-serif text-slate-900">{viewingBatch.students}</p>
+						<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400 mt-1">
+							Students
+						</p>
+					</div>
+					<div>
+						<p class="text-2xl font-bold font-serif text-[#881B1B]">{viewingBatch.defaulters}</p>
+						<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400 mt-1">
+							Defaulters
+						</p>
+					</div>
+					<div>
+						<p class="text-2xl font-bold font-serif text-emerald-600">
+							{viewingBatch.compliance}%
+						</p>
+						<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400 mt-1">
+							Compliance
+						</p>
+					</div>
+				</div>
+
+				<div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+					<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+						Pending Certificates
+					</p>
+					<p class="text-sm font-bold text-slate-900 mt-1">
+						{viewingBatch.pendingCerts} awaiting review
+					</p>
+					<p class="text-xs italic text-slate-500 mt-3">
+						"Batch performance is tracked against semester compliance and certification
+						requirements."
+					</p>
+				</div>
+			</div>
+
+			<div class="flex justify-end px-6 py-4 border-t border-slate-200">
+				<button
+					onclick={closeView}
+					class="px-5 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
+				>
+					Close Overview
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ==================== EDIT MODAL ==================== -->
+{#if editingBatch}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={closeEdit}></div>
+
+		<div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+			<div class="flex items-start justify-between px-6 py-5 border-b border-slate-200">
+				<div>
+					<h2 class="text-lg font-bold font-serif text-slate-900">Manage Batch Details</h2>
+					<p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-1">
+						Modify parameters for this batch
+					</p>
+				</div>
+				<button
+					onclick={closeEdit}
+					aria-label="Close"
+					class="text-slate-400 hover:text-slate-600 transition-colors"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+						class="w-5 h-5"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			<div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+				<div>
+					<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-name">
+						Batch Name
+					</label>
+					<input
+						id="batch-name"
+						type="text"
+						bind:value={editingBatch.name}
+						class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400"
+					/>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-students">
+							Students
+						</label>
+						<input
+							id="batch-students"
+							type="number"
+							min="0"
+							bind:value={editingBatch.students}
+							class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400"
+						/>
+					</div>
+					<div>
+						<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-compliance">
+							Compliance %
+						</label>
+						<input
+							id="batch-compliance"
+							type="number"
+							min="0"
+							max="100"
+							bind:value={editingBatch.compliance}
+							class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400"
+						/>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-pd">
+							PD Credits
+						</label>
+						<input
+							id="batch-pd"
+							type="number"
+							min="0"
+							bind:value={editingBatch.pd}
+							class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400"
+						/>
+					</div>
+					<div>
+						<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-sb">
+							SB Credits
+						</label>
+						<input
+							id="batch-sb"
+							type="number"
+							min="0"
+							bind:value={editingBatch.sb}
+							class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400"
+						/>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-defaulters">
+							Defaulters
+						</label>
+						<input
+							id="batch-defaulters"
+							type="number"
+							min="0"
+							bind:value={editingBatch.defaulters}
+							class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400"
+						/>
+					</div>
+					<div>
+						<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-pending">
+							Pending Certs
+						</label>
+						<input
+							id="batch-pending"
+							type="number"
+							min="0"
+							bind:value={editingBatch.pendingCerts}
+							class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400"
+						/>
+					</div>
+				</div>
+
+				<div>
+					<label class="text-[10px] font-bold uppercase tracking-wide text-slate-400" for="batch-status">
+						Batch Status
+					</label>
+					<select
+						id="batch-status"
+						bind:value={editingBatch.status}
+						class="mt-1.5 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 bg-white"
+					>
+						{#each statusOptions as option}
+							<option value={option}>{option}</option>
+						{/each}
+					</select>
+				</div>
+			</div>
+
+			<div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-200">
+				<button
+					onclick={closeEdit}
+					class="px-5 py-2 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors"
+				>
+					Cancel
+				</button>
+				<button
+					onclick={saveEdit}
+					class="px-5 py-2 rounded-lg bg-[#881B1B] text-white text-xs font-bold hover:bg-[#881B1B]/90 transition-colors"
+				>
+					Save Changes
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
