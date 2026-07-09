@@ -694,6 +694,9 @@
 				<span class="text-xl font-bold tracking-tight text-slate-900 font-serif">
 					i<span class="text-[#881B1B]">SPARC</span>
 				</span>
+				<span class="text-[9px] font-bold text-slate-600 tracking-wider uppercase -mt-1">
+					IIPS DAVV CELL
+				</span>
 			</div>
 		</div>
 
@@ -705,7 +708,7 @@
 					class="w-full flex items-center gap-3.5 px-4 py-3 rounded-lg text-[13px] font-bold tracking-wide transition-all duration-200 {currentTab ===
 					item.name
 						? 'bg-[#881B1B]/10 text-[#881B1B] border-l-[3px] border-[#881B1B] rounded-l-none'
-						: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}"
+						: 'text-slate-800 hover:bg-slate-50 hover:text-slate-900'}"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -726,7 +729,7 @@
 		<div class="p-4 border-t border-slate-100">
 			<button
 				onclick={handleLogout}
-				class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+				class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-800 hover:bg-rose-50 hover:text-rose-600 transition-colors"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -774,6 +777,9 @@
 						<span class="text-xl font-bold tracking-tight text-slate-900 font-serif">
 							i<span class="text-[#881B1B]">SPARC</span>
 						</span>
+						<span class="text-[9px] font-bold text-slate-600 tracking-wider uppercase -mt-1">
+							IIPS DAVV CELL
+						</span>
 					</div>
 				</div>
 				<button
@@ -804,7 +810,7 @@
 						class="w-full flex items-center gap-3.5 px-4 py-3 rounded-lg text-[13px] font-bold tracking-wide transition-all duration-200 {currentTab ===
 						item.name
 							? 'bg-[#881B1B]/10 text-[#881B1B] border-l-[3px] border-[#881B1B] rounded-l-none'
-							: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}"
+							: 'text-slate-800 hover:bg-slate-50 hover:text-slate-900'}"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -827,7 +833,7 @@
 						handleLogout();
 						toggleMobileSidebar();
 					}}
-					class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+					class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-bold text-slate-800 hover:bg-rose-50 hover:text-rose-600 transition-colors"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
