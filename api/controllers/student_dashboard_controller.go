@@ -70,7 +70,7 @@ func GetDashboardStats(c *fiber.Ctx) error {
 
 	// 1. Total activities participated (count of enrollments)
 	var activitiesCount int64
-	if err := config.DB.Model(&models.Enrollment{}).Where("student_roll_no = ? AND status IN ('Enrolled', 'Completed')", rollNo).Count(&activitiesCount).Error; err != nil {
+	if err := config.DB.Model(&models.Enrollment{}).Where("student_roll_no = ? AND status IN ('Enrolled', 'Completed', 'Registered', 'Verified', 'Pending Verification')", rollNo).Count(&activitiesCount).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to calculate activities count",
 		})

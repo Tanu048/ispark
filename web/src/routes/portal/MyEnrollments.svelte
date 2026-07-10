@@ -172,24 +172,54 @@
 		loadEnrollmentsData();
 	});
 
-	// Recent updates timeline data (mocked for UI context, but connected to stats)
-	const recentUpdates: RecentUpdate[] = $derived([
-		{
-			type: 'success' as const,
-			text: `${stats.activities_participated} total activities enrolled`,
-			time: 'Sync complete'
-		},
-		{
-			type: 'star' as const,
-			text: `${stats.credits_earned} total credits approved`,
-			time: 'Live update'
-		},
-		{
-			type: 'doc' as const,
-			text: `${stats.pending_certificates} certificates pending review`,
-			time: 'Pending audit'
+	let totalCreditsEarned = $derived(
+		creditCategorySummaries.reduce((sum, cat) => sum + cat.creditsEarned, 0)
+	);
+	let totalCreditsPercentage = $derived(
+		Math.min(Math.round((totalCreditsEarned / 200) * 100), 100)
+	);
+
+	// Recent updates timeline data derived from actual registered activities, or falling back to stats
+	const recentUpdates: RecentUpdate[] = $derived.by(() => {
+		if (registeredActivities.length > 0) {
+			return registeredActivities.slice(0, 3).map((act) => {
+				let type: 'success' | 'star' | 'doc' | 'db' = 'success';
+				if (act.status === 'Verified') {
+					type = 'star';
+				} else if (act.status === 'Pending Verification') {
+					type = 'doc';
+				} else if (act.status === 'Rejected') {
+					type = 'db';
+				} else if (act.status === 'Completed') {
+					type = 'success';
+				}
+
+				return {
+					type,
+					text: `Enrolled in ${act.name} (${act.status})`,
+					time: act.enrollmentDate
+				};
+			});
 		}
-	]);
+
+		return [
+			{
+				type: 'success' as const,
+				text: `${stats.activities_participated} total activities enrolled`,
+				time: 'Sync complete'
+			},
+			{
+				type: 'star' as const,
+				text: `${stats.credits_earned} total credits approved`,
+				time: 'Live update'
+			},
+			{
+				type: 'doc' as const,
+				text: `${stats.pending_certificates} certificates pending review`,
+				time: 'Pending audit'
+			}
+		];
+	});
 
 	// Selection state: selected row index
 	let selectedActivityIndex = $state(0);
@@ -786,15 +816,18 @@
 							<span class="text-[11px] font-extrabold text-[#0B1535] uppercase tracking-wide"
 								>Total Credits vs Required</span
 							>
-							<span class="text-[#881B1B]">118 / 200</span>
+							<span class="text-[#881B1B]">{totalCreditsEarned} / 200</span>
 						</div>
 						<div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-							<div class="h-full bg-[#881B1B] rounded-full" style="width: 59%"></div>
+							<div
+								class="h-full bg-[#881B1B] rounded-full"
+								style="width: {totalCreditsPercentage}%"
+							></div>
 						</div>
 						<div
 							class="flex justify-end text-[10px] font-extrabold text-[#881B1B] mt-1.5 uppercase tracking-wide"
 						>
-							59% Complete
+							{totalCreditsPercentage}% Complete
 						</div>
 					</div>
 				</div>
