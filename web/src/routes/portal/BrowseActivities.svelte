@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
+	import { SvelteDate } from 'svelte/reactivity';
 
 	// Define interfaces for activities
 	interface Activity {
@@ -121,18 +122,18 @@
 
 	// Dynamic registration deadlines (Open / Closing Soon activities sorted by deadline)
 	let deadlines = $derived.by(() => {
-		const today = new Date();
+		const today = new SvelteDate();
 		today.setHours(0, 0, 0, 0);
 
 		return allActivities
 			.filter((a) => a.status === 'Open' || a.status === 'Closing Soon')
 			.map((a) => {
-				const deadlineDate = new Date(a.regDeadlineRaw);
+				const deadlineDate = new SvelteDate(a.regDeadlineRaw);
 				deadlineDate.setHours(0, 0, 0, 0);
 				const diffTime = deadlineDate.getTime() - today.getTime();
 				const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-				let daysStr = '';
+				let daysStr: string;
 				let colorClass = 'bg-slate-50 text-slate-700 border-slate-100';
 
 				if (diffDays < 0) {
