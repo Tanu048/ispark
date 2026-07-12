@@ -102,8 +102,13 @@
 		const target = event.target as HTMLInputElement;
 		if (target.files && target.files[0]) {
 			const file = target.files[0];
-			if (file.size > 10 * 1024 * 1024) {
-				errorMessage = 'File size exceeds 10 MB limit.';
+			const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+			if (!validTypes.includes(file.type)) {
+				errorMessage = 'Unsupported file format. Please upload PDF, PNG, or JPG.';
+				return;
+			}
+			if (file.size > 5 * 1024 * 1024) {
+				errorMessage = 'File size exceeds 5 MB limit.';
 				return;
 			}
 			startSimulatedUpload(file);
@@ -129,8 +134,8 @@
 				errorMessage = 'Unsupported file format. Please upload PDF, PNG, or JPG.';
 				return;
 			}
-			if (file.size > 10 * 1024 * 1024) {
-				errorMessage = 'File size exceeds 10 MB limit.';
+			if (file.size > 5 * 1024 * 1024) {
+				errorMessage = 'File size exceeds 5 MB limit.';
 				return;
 			}
 			startSimulatedUpload(file);
@@ -468,7 +473,7 @@
 						BROWSE FILES
 					</button>
 					<p class="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
-						Supported: PDF, PNG, JPEG, JPG &middot; Max size: 10 MB
+						Supported: PDF, PNG, JPEG, JPG &middot; Max size: 5 MB
 					</p>
 				</div>
 			{:else}
@@ -734,7 +739,7 @@
 							<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
 						</svg>
 					</span>
-					<span class="leading-relaxed">File size must not exceed 10 MB</span>
+					<span class="leading-relaxed">File size must not exceed 5 MB</span>
 				</li>
 				<li class="flex items-start gap-2.5 text-xs text-slate-600">
 					<span

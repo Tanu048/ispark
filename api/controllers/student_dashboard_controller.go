@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -41,7 +42,7 @@ func UploadCertificate(c *fiber.Ctx) error {
 	participationType := c.FormValue("participation_type")
 	description := c.FormValue("description")
 
-	if activityName == "" || participationType == "" {
+	if activityName == "" || participationType == "" || activityDateStr == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Required fields are missing",
 		})
@@ -50,14 +51,19 @@ func UploadCertificate(c *fiber.Ctx) error {
 	// Parse dates
 	activityDate, err := time.Parse("2006-01-02", activityDateStr)
 	if err != nil || activityDate.IsZero() {
-		activityDate = time.Now()
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid activity date format. Expected YYYY-MM-DD",
+		})
 	}
 	var issueDate *time.Time
 	if issueDateStr != "" {
 		parsedDate, parseErr := time.Parse("2006-01-02", issueDateStr)
-		if parseErr == nil {
-			issueDate = &parsedDate
+		if parseErr != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid issue date format. Expected YYYY-MM-DD",
+			})
 		}
+		issueDate = &parsedDate
 	}
 
 	// Determine credits based on participation type and level
@@ -89,6 +95,35 @@ func UploadCertificate(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Certificate file is required",
+		})
+	}
+
+	// Validate file size (max 5 MB)
+	if file.Size > 5*1024*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "File size exceeds 5 MB limit",
+		})
+	}
+
+	// Validate file extension/MIME type
+	validTypes := map[string]bool{
+		"application/pdf": true,
+		"image/png":       true,
+		"image/jpeg":      true,
+		"image/jpg":       true,
+	}
+	contentType := file.Header.Get("Content-Type")
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	validExtensions := map[string]bool{
+		".pdf":  true,
+		".png":  true,
+		".jpg":  true,
+		".jpeg": true,
+	}
+
+	if !validTypes[contentType] && !validExtensions[ext] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Unsupported file format. Please upload PDF, PNG, or JPG",
 		})
 	}
 
@@ -141,19 +176,26 @@ func UploadCertificate(c *fiber.Ctx) error {
 
 // getAcademicYearDateRange returns start and end date of the academic year
 func getAcademicYearDateRange(yearStr string) (time.Time, time.Time, error) {
-	var startYear int
-	var err error
-
-	if len(yearStr) >= 7 && yearStr[4] == '-' {
-		startYear, err = strconv.Atoi(yearStr[0:4])
-		if err != nil {
-			return time.Time{}, time.Time{}, err
-		}
-	} else {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid year format")
+	if len(yearStr) != 7 || yearStr[4] != '-' {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid year format, expected YYYY-YY")
 	}
-	endYear := startYear + 1
 
+	startYear, err := strconv.Atoi(yearStr[0:4])
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid start year: %v", err)
+	}
+
+	endYearPart, err := strconv.Atoi(yearStr[5:7])
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end year suffix: %v", err)
+	}
+
+	expectedEndYearPart := (startYear + 1) % 100
+	if endYearPart != expectedEndYearPart {
+		return time.Time{}, time.Time{}, fmt.Errorf("academic year mismatch: suffix must be %02d", expectedEndYearPart)
+	}
+
+	endYear := startYear + 1
 	startDate := time.Date(startYear, time.July, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(endYear, time.June, 30, 23, 59, 59, 999999999, time.UTC)
 
