@@ -1,0 +1,283 @@
+<script lang="ts">
+	import { fade } from 'svelte/transition';
+
+	// Types
+	interface AdminProfile {
+		admin_id: string;
+		name: string;
+		email: string;
+		role: string;
+		assigned_batch: string;
+		created_at: string;
+		updated_at: string;
+	}
+
+	// Props using Svelte 5 runes
+	let {
+		admin,
+		loading,
+		error
+	}: {
+		admin: AdminProfile | null;
+		loading: boolean;
+		error: string | null;
+	} = $props();
+
+	function getInitials(name: string): string {
+		if (!name) return 'A';
+		const parts = name.split(' ').filter((part) => {
+			const lower = part.toLowerCase();
+			return (
+				lower !== 'dr.' &&
+				lower !== 'prof.' &&
+				lower !== 'mr.' &&
+				lower !== 'ms.' &&
+				lower !== 'mrs.'
+			);
+		});
+		if (parts.length === 0) return 'A';
+		if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+		return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+	}
+
+	function getEmployeeId(adminId: string): string {
+		if (adminId === 'admin') return 'EMP-2026-014';
+		if (adminId === 'admin2') return 'EMP-2026-015';
+		if (adminId === 'superadmin') return 'EMP-2026-001';
+		return `EMP-2026-${adminId.toUpperCase()}`;
+	}
+</script>
+
+<div class="space-y-6 font-sans" transition:fade={{ duration: 150 }}>
+	<!-- Page Title Header -->
+	<div class="space-y-1">
+		<h2 class="text-2xl font-bold font-serif text-slate-900 leading-tight">My Profile</h2>
+		<p class="text-xs text-slate-500 font-semibold">
+			Manage your professional profile and administrative account
+		</p>
+	</div>
+
+	<!-- Profile Header Card -->
+	<div class="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-xs relative">
+		{#if loading}
+			<!-- Loading State Skeleton -->
+			<div class="flex flex-col md:flex-row items-center gap-6 animate-pulse">
+				<div class="w-24 h-24 rounded-full bg-slate-200 shrink-0"></div>
+				<div class="flex-grow space-y-3.5 w-full">
+					<div class="h-6 bg-slate-200 rounded w-1/3"></div>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8">
+						<div class="h-4 bg-slate-200 rounded w-3/4"></div>
+						<div class="h-4 bg-slate-200 rounded w-3/4"></div>
+						<div class="h-4 bg-slate-200 rounded w-2/3"></div>
+						<div class="h-4 bg-slate-200 rounded w-2/3"></div>
+						<div class="h-4 bg-slate-200 rounded w-1/2 sm:col-span-2"></div>
+					</div>
+				</div>
+			</div>
+		{:else if error}
+			<!-- Error State -->
+			<div class="p-6 text-center text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="2"
+					stroke="currentColor"
+					class="w-8 h-8 mx-auto mb-2 text-rose-500"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+					/>
+				</svg>
+				<h4 class="font-bold text-sm">Failed to Load Profile</h4>
+				<p class="text-xs text-rose-500 mt-1">{error}</p>
+			</div>
+		{:else if admin}
+			<!-- Main Profile Layout -->
+			<div class="flex flex-col md:flex-row items-start gap-6">
+				<!-- Left: Circular Avatar -->
+				<div
+					class="w-24 h-24 rounded-full bg-[#0B1535] text-white flex items-center justify-center font-bold text-3xl border-4 border-slate-100 shadow-md shrink-0 relative overflow-hidden font-serif select-none"
+				>
+					{getInitials(admin.name)}
+				</div>
+
+				<!-- Center: Info Fields -->
+				<div class="flex-grow space-y-4 w-full">
+					<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+						<h3 class="text-2xl font-bold text-[#0B1535] font-serif leading-none">
+							{admin.name}
+						</h3>
+
+						<!-- Right: Actions Buttons -->
+						<div class="flex gap-3 shrink-0">
+							<!-- Edit Profile button (UI only) -->
+							<button
+								type="button"
+								class="inline-flex items-center justify-center gap-1.5 px-4 py-2 border border-slate-250 bg-white hover:bg-slate-50 text-slate-800 rounded-lg text-xs font-bold transition-colors shadow-3xs cursor-pointer focus:outline-none"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="2.2"
+									stroke="currentColor"
+									class="w-3.5 h-3.5 text-slate-500"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="m16.862 4.487 1.687-1.688a1.875 1.875 0 112.652 2.652L6.83 21.82a.75.75 0 01-.34.201L3 22.887l.859-3.542a.75.75 0 01.202-.34l11.758-11.76H16.862z"
+									/>
+								</svg>
+								Edit Profile
+							</button>
+
+							<!-- Change Password button (UI only) -->
+							<button
+								type="button"
+								class="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0B1535] hover:bg-[#1a2b5e] text-white rounded-lg text-xs font-bold transition-colors shadow-3xs cursor-pointer focus:outline-none"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="2.2"
+									stroke="currentColor"
+									class="w-3.5 h-3.5 text-white/90"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 00 2.25 2.25z"
+									/>
+								</svg>
+								Change Password
+							</button>
+						</div>
+					</div>
+
+					<!-- Details Grid -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3.5 gap-x-8 text-xs leading-normal">
+						<!-- Department -->
+						<div class="flex items-center gap-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="w-4 h-4 text-slate-400 shrink-0"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m0 0a8.984 8.984 0 0 1 3.224-3.357m8.816-2.13A4.9 4.9 0 0 0 16 7.5c0-.985-.29-1.902-.79-2.671M12 18.75h-1.5V1.5h1.5v17.25Z"
+								/>
+							</svg>
+							<div class="flex items-center gap-1.5">
+								<span class="text-slate-500 font-semibold">Department:</span>
+								<span class="font-bold text-slate-800">Computer Applications</span>
+							</div>
+						</div>
+
+						<!-- Employee ID -->
+						<div class="flex items-center gap-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="w-4 h-4 text-slate-400 shrink-0"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm-1.2 6.477a3.375 3.375 0 00-5.1 0 2.25 2.25 0 002.25 2.25h.6a2.25 2.25 0 002.25-2.25v-.15z"
+								/>
+							</svg>
+							<div class="flex items-center gap-1.5">
+								<span class="text-slate-500 font-semibold">Employee ID:</span>
+								<span class="font-bold text-slate-800">{getEmployeeId(admin.admin_id)}</span>
+							</div>
+						</div>
+
+						<!-- Email -->
+						<div class="flex items-center gap-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="w-4 h-4 text-slate-400 shrink-0"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25H4.5A2.25 2.25 0 0 1 2.25 17.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5H4.5a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"
+								/>
+							</svg>
+							<div class="flex items-center gap-1.5 min-w-0">
+								<span class="text-slate-500 font-semibold">Email:</span>
+								<span class="font-bold text-slate-800 truncate break-all">{admin.email}</span>
+							</div>
+						</div>
+
+						<!-- Contact -->
+						<div class="flex items-center gap-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="w-4 h-4 text-slate-400 shrink-0"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.824-1.502-5.184-3.864-6.686-6.686l1.294-.97c.362-.272.528-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25z"
+								/>
+							</svg>
+							<div class="flex items-center gap-1.5">
+								<span class="text-slate-500 font-semibold">Contact:</span>
+								<span class="font-bold text-slate-800">+91 XXXXX XXXXX</span>
+							</div>
+						</div>
+
+						<!-- Office Location -->
+						<div class="flex items-center gap-3 sm:col-span-2">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="w-4 h-4 text-slate-400 shrink-0"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+								/>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+								/>
+							</svg>
+							<div class="flex items-center gap-1.5">
+								<span class="text-slate-500 font-semibold">Office Location:</span>
+								<span class="font-bold text-slate-800">IIPS, Block B</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
+</div>

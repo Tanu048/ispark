@@ -9,6 +9,7 @@
 	import BatchAnalyticsView from './BatchAnalyticsView.svelte';
 	import AdminStudentManagementView from './AdminStudentManagementView.svelte';
 	import AdminCertificateVerificationView from './AdminCertificateVerificationView.svelte';
+	import AdminProfileView from './AdminProfileView.svelte';
 
 	interface AdminProfile {
 		admin_id: string;
@@ -95,6 +96,10 @@
 		{
 			name: 'Batch Analytics',
 			icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z'
+		},
+		{
+			name: 'Profile',
+			icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
 		}
 	];
 
@@ -350,7 +355,11 @@
 				</button>
 				<div>
 					<h1 class="text-lg sm:text-xl font-bold text-slate-900 font-serif leading-tight">
-						{currentTab === 'Dashboard' ? 'Welcome Back, Admin!' : currentTab}
+						{currentTab === 'Dashboard'
+							? 'Welcome Back, Admin!'
+							: currentTab === 'Profile'
+								? 'My Profile'
+								: currentTab}
 					</h1>
 					<p
 						class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5"
@@ -477,6 +486,8 @@
 				<AdminCertificateVerificationView />
 			{:else if currentTab === 'Batch Analytics'}
 				<BatchAnalyticsView />
+			{:else if currentTab === 'Profile'}
+				<AdminProfileView {admin} {loading} {error} />
 			{:else}
 				<AdminPlaceholderView
 					tabName={currentTab}
