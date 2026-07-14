@@ -700,7 +700,6 @@ type SemesterSummaryEntry struct {
 	ActivitiesCount int    `json:"activitiesCount"`
 	Cumulative      int    `json:"cumulative"`
 	Grade           string `json:"grade"`
-	GradeColorClass string `json:"gradeColorClass"`
 }
 
 // MarksheetResponse represents the full payload of the marksheet
@@ -895,7 +894,7 @@ func GetMarksheet(c *fiber.Ctx) error {
 			semCredits += cert.Credits
 		}
 		cumulative += semCredits
-		grade, colorClass := getSemesterGrade(semCredits)
+		grade := getSemesterGrade(semCredits)
 
 		semesterSummary = append(semesterSummary, SemesterSummaryEntry{
 			Semester:        romanSemester(sem),
@@ -905,7 +904,6 @@ func GetMarksheet(c *fiber.Ctx) error {
 			ActivitiesCount: semActCount,
 			Cumulative:      cumulative,
 			Grade:           grade,
-			GradeColorClass: colorClass,
 		})
 	}
 
@@ -1025,17 +1023,17 @@ func getSemesterForActivity(activityDate time.Time, admissionYear int) int {
 	return (totalMonths / 6) + 1
 }
 
-func getSemesterGrade(credits int) (string, string) {
+func getSemesterGrade(credits int) string {
 	if credits >= 30 {
-		return "Grade O", "text-emerald-600"
+		return "Grade O"
 	} else if credits >= 20 {
-		return "Grade A", "text-[#881B1B]"
+		return "Grade A"
 	} else if credits >= 15 {
-		return "Grade B", "text-blue-600"
+		return "Grade B"
 	} else if credits >= 10 {
-		return "Grade C", "text-amber-500"
+		return "Grade C"
 	}
-	return "Grade D", "text-slate-500"
+	return "Grade D"
 }
 
 func getGradeAndNextInfo(totalCredits int) (string, int, string, []fiber.Map) {
@@ -1103,43 +1101,33 @@ func generateInsights(creditCategories []CreditCategoryResponse, neededToNext in
 
 	if maxCat != "" && maxCredits > 0 {
 		insights = append(insights, fiber.Map{
-			"text":        fmt.Sprintf("Your strongest contribution area is %s.", maxCat),
-			"bgClass":     "bg-emerald-50/70",
-			"textClass":   "text-emerald-800",
-			"borderClass": "border-emerald-150",
+			"text": fmt.Sprintf("Your strongest contribution area is %s.", maxCat),
+			"type": "success",
 		})
 	}
 
 	if neededToNext > 0 && nextGrade != "" {
 		insights = append(insights, fiber.Map{
-			"text":        fmt.Sprintf("You need %d more credits to reach %s.", neededToNext, nextGrade),
-			"bgClass":     "bg-rose-50/70",
-			"textClass":   "text-rose-800",
-			"borderClass": "border-rose-150",
+			"text": fmt.Sprintf("You need %d more credits to reach %s.", neededToNext, nextGrade),
+			"type": "danger",
 		})
 	} else if nextGrade == "" {
 		insights = append(insights, fiber.Map{
-			"text":        "Congratulations! You have reached the highest Grade (O).",
-			"bgClass":     "bg-emerald-50/70",
-			"textClass":   "text-emerald-800",
-			"borderClass": "border-emerald-150",
+			"text": "Congratulations! You have reached the highest Grade (O).",
+			"type": "success",
 		})
 	}
 
 	if minCat != "" && minCredits < maxCredits {
 		insights = append(insights, fiber.Map{
-			"text":        fmt.Sprintf("%s activities have the lowest contribution.", minCat),
-			"bgClass":     "bg-amber-50/60",
-			"textClass":   "text-amber-800",
-			"borderClass": "border-amber-150",
+			"text": fmt.Sprintf("%s activities have the lowest contribution.", minCat),
+			"type": "warning",
 		})
 	}
 
 	insights = append(insights, fiber.Map{
-		"text":        "Participating in upcoming hackathons or events may improve your score faster.",
-		"bgClass":     "bg-blue-50/60",
-		"textClass":   "text-blue-800",
-		"borderClass": "border-blue-150",
+		"text": "Participating in upcoming hackathons or events may improve your score faster.",
+		"type": "info",
 	})
 
 	return insights

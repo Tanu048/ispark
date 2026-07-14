@@ -14,7 +14,6 @@
 		credits: number;
 		activitiesCount: number;
 		grade: string;
-		gradeColorClass: string;
 	}
 
 	interface GradeScale {
@@ -25,9 +24,7 @@
 
 	interface Insight {
 		text: string;
-		bgClass: string;
-		textClass: string;
-		borderClass: string;
+		type: 'success' | 'danger' | 'warning' | 'info';
 	}
 
 	// States
@@ -49,6 +46,44 @@
 	let activeScale = $derived(
 		gradeScales.find((s) => s.isActive) || { name: 'Grade D', range: 'Below 40' }
 	);
+
+	const insightStyles = {
+		success: {
+			bg: 'bg-emerald-50/70',
+			border: 'border-emerald-200',
+			text: 'text-emerald-800'
+		},
+		danger: {
+			bg: 'bg-rose-50/70',
+			border: 'border-rose-200',
+			text: 'text-rose-800'
+		},
+		warning: {
+			bg: 'bg-amber-50/60',
+			border: 'border-amber-200',
+			text: 'text-amber-800'
+		},
+		info: {
+			bg: 'bg-blue-50/60',
+			border: 'border-blue-200',
+			text: 'text-blue-800'
+		}
+	};
+
+	function getGradeColorClass(grade: string): string {
+		switch (grade) {
+			case 'Grade O':
+				return 'text-emerald-600';
+			case 'Grade A':
+				return 'text-[#881B1B]';
+			case 'Grade B':
+				return 'text-blue-600';
+			case 'Grade C':
+				return 'text-amber-500';
+			default:
+				return 'text-slate-500';
+		}
+	}
 
 	async function loadProgressData() {
 		try {
@@ -215,7 +250,8 @@
 									<td class="py-3.5 px-4 font-bold text-[#0B1535]">{sem.semester}</td>
 									<td class="py-3.5 px-4 text-slate-700 font-semibold">{sem.credits} credits</td>
 									<td class="py-3.5 px-4 text-slate-500">{sem.activitiesCount} Activities</td>
-									<td class="py-3.5 px-4 text-right font-bold {sem.gradeColorClass}">{sem.grade}</td
+									<td class="py-3.5 px-4 text-right font-bold {getGradeColorClass(sem.grade)}"
+										>{sem.grade}</td
 									>
 								</tr>
 							{/each}
@@ -290,9 +326,8 @@
 
 				<div class="space-y-3 pt-1">
 					{#each insights as insight}
-						<div
-							class="p-3.5 border rounded-lg {insight.bgClass} {insight.borderClass} flex items-start gap-2.5"
-						>
+						{@const style = insightStyles[insight.type] || insightStyles.info}
+						<div class="p-3.5 border rounded-lg {style.bg} {style.border} flex items-start gap-2.5">
 							<div class="mt-0.5 shrink-0">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -300,7 +335,7 @@
 									viewBox="0 0 24 24"
 									stroke-width="2.5"
 									stroke="currentColor"
-									class="w-3.5 h-3.5 {insight.textClass}"
+									class="w-3.5 h-3.5 {style.text}"
 								>
 									<path
 										stroke-linecap="round"
@@ -309,7 +344,7 @@
 									/>
 								</svg>
 							</div>
-							<p class="text-[11.5px] font-semibold leading-relaxed {insight.textClass}">
+							<p class="text-[11.5px] font-semibold leading-relaxed {style.text}">
 								{insight.text}
 							</p>
 						</div>

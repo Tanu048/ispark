@@ -60,7 +60,7 @@
 	}
 
 	function handleShare() {
-		const shareUrl = `${window.location.origin}${window.location.pathname}#verify/MARK-2026-${studentInfo.rollNo}`;
+		const shareUrl = `${window.location.origin}${window.location.pathname}#verify/MARK-${studentInfo.academicYear || '2025-26'}-${studentInfo.rollNo}`;
 		navigator.clipboard.writeText(shareUrl).then(
 			() => {
 				triggerToast('Verification link copied to clipboard!', 'success');
@@ -81,7 +81,7 @@
 
 	let verificationUrl = $derived(
 		studentInfo.rollNo && studentInfo.rollNo !== '...'
-			? `${window.location.origin}${window.location.pathname}#verify/MARK-2026-${studentInfo.rollNo}`
+			? `${window.location.origin}${window.location.pathname}#verify/MARK-${studentInfo.academicYear || '2025-26'}-${studentInfo.rollNo}`
 			: ''
 	);
 
