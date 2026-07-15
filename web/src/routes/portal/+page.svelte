@@ -470,7 +470,7 @@
 							viewBox="0 0 24 24"
 							stroke="currentColor"
 							stroke-width="2"
-							class="w-5 h-5"
+							class="w-5 h-5 shrink-0 mt-0.5"
 						>
 							<path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
 						</svg>
