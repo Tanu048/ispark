@@ -3,6 +3,7 @@ package controllers
 import (
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/iips-oss/ispark/api/config"
@@ -15,6 +16,75 @@ var emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z
 
 func isValidEmail(email string) bool {
 	return emailRegexp.MatchString(email)
+}
+
+func isStrongPassword(password string) bool {
+	if len(password) < 8 {
+		return false
+	}
+
+	var (
+		hasUpper   bool
+		hasLower   bool
+		hasNumber  bool
+		hasSpecial bool
+	)
+
+	for _, char := range password {
+		switch {
+		case unicode.IsUpper(char):
+			hasUpper = true
+		case unicode.IsLower(char):
+			hasLower = true
+		case unicode.IsNumber(char):
+			hasNumber = true
+		case unicode.IsPunct(char) || unicode.IsSymbol(char) || char == ' ':
+			hasSpecial = true
+		default:
+			if (char >= 32 && char <= 47) || (char >= 58 && char <= 64) || (char >= 91 && char <= 96) || (char >= 123 && char <= 126) {
+				hasSpecial = true
+			}
+		}
+	}
+
+	return hasUpper && hasLower && hasNumber && hasSpecial
+}
+
+func getAdminStats(admin *models.Admin) fiber.Map {
+	var assignedStudents int64
+	var verifiedCertificates int64
+	var pendingReviews int64
+	var supervisedActivities int64
+
+	// 1. Assigned Students Count
+	studentQuery := config.DB.Model(&models.Student{})
+	if admin.Role != "superadmin" && admin.AssignedBatch != "" {
+		studentQuery = studentQuery.Where("roll_no LIKE ?", admin.AssignedBatch+"%")
+	}
+	studentQuery.Count(&assignedStudents)
+
+	// 2 & 3. Certificates Stats
+	certQuery := config.DB.Model(&models.Certificate{})
+	if admin.Role != "superadmin" && admin.AssignedBatch != "" {
+		certQuery = certQuery.Where("student_roll_no LIKE ?", admin.AssignedBatch+"%")
+	}
+	certQuery.Where("status = ?", "Approved").Count(&verifiedCertificates)
+
+	certQueryPending := config.DB.Model(&models.Certificate{})
+	if admin.Role != "superadmin" && admin.AssignedBatch != "" {
+		certQueryPending = certQueryPending.Where("student_roll_no LIKE ?", admin.AssignedBatch+"%")
+	}
+	certQueryPending.Where("status = ?", "Pending").Count(&pendingReviews)
+
+	// 4. Activities Supervised
+	config.DB.Model(&models.Activity{}).Where("coordinator = ?", admin.Name).Count(&supervisedActivities)
+
+	return fiber.Map{
+		"assigned_students":     assignedStudents,
+		"verified_certificates": verifiedCertificates,
+		"pending_reviews":       pendingReviews,
+		"supervised_activities": supervisedActivities,
+	}
 }
 
 func errJSON(c *fiber.Ctx, status int, msg string) error {
@@ -64,6 +134,15 @@ func AdminChangePassword(c *fiber.Ctx) error {
 	if input.NewPassword != input.ConfirmPassword {
 		return errJSON(c, fiber.StatusBadRequest, "Passwords do not match")
 	}
+
+	if !isStrongPassword(input.NewPassword) {
+		return errJSON(c, fiber.StatusBadRequest, "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.")
+	}
+
+	if len(input.NewPassword) > 72 {
+		return errJSON(c, fiber.StatusBadRequest, "Password cannot exceed 72 characters")
+	}
+
 	adminID, ok := c.Locals("roll_no").(string)
 	if !ok || adminID == "" {
 		return errJSON(c, fiber.StatusUnauthorized, "Unauthorized")
@@ -216,6 +295,7 @@ func GetAdminProfile(c *fiber.Ctx) error {
 			"created_at":     admin.CreatedAt,
 			"updated_at":     admin.UpdatedAt,
 		},
+		"stats": getAdminStats(admin),
 	})
 }
 
@@ -244,8 +324,16 @@ func UpdateAdminProfile(c *fiber.Ctx) error {
 		return errJSON(c, fiber.StatusBadRequest, "Name is required")
 	}
 
+	if len(input.Name) > 100 {
+		return errJSON(c, fiber.StatusBadRequest, "Name cannot exceed 100 characters")
+	}
+
 	if input.Email == "" {
 		return errJSON(c, fiber.StatusBadRequest, "Email is required")
+	}
+
+	if len(input.Email) > 100 {
+		return errJSON(c, fiber.StatusBadRequest, "Email cannot exceed 100 characters")
 	}
 
 	if !isValidEmail(input.Email) {
@@ -281,5 +369,6 @@ func UpdateAdminProfile(c *fiber.Ctx) error {
 			"created_at":     admin.CreatedAt,
 			"updated_at":     admin.UpdatedAt,
 		},
+		"stats": getAdminStats(admin),
 	})
 }

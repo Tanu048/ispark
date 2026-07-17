@@ -26,21 +26,24 @@
 		admin,
 		loading,
 		error,
+		stats,
 		onEditProfile
 	}: {
 		admin: AdminProfile | null;
 		loading: boolean;
 		error: string | null;
+		stats: {
+			assigned_students: number;
+			verified_certificates: number;
+			pending_reviews: number;
+			supervised_activities: number;
+		} | null;
 		onEditProfile: () => void;
 	} = $props();
 
 	// Stats state using Svelte 5 runes
 	let statsLoading = $state(true);
 	let statsError = $state<string | null>(null);
-	let assignedStudentsCount = $state(0);
-	let verifiedCertificatesCount = $state(0);
-	let pendingReviewsCount = $state(0);
-	let activitiesSupervisedCount = $state(0);
 	let assignedBatches = $state<BatchInfo[]>([]);
 
 	// Change Password form state
@@ -158,36 +161,10 @@
 			const data = await res.json();
 			const studentsList = data.students || [];
 
-			assignedStudentsCount = studentsList.length;
-
-			let verified = 0;
-			let pending = 0;
-			const uniqueActivityIds: number[] = [];
 			const grouped: BatchInfo[] = [];
 
 			for (const s of studentsList) {
-				// 1. Count certificates
-				if (s.certificates) {
-					for (const cert of s.certificates) {
-						if (cert.status === 'Approved') {
-							verified++;
-						}
-						if (cert.status === 'Pending') {
-							pending++;
-						}
-					}
-				}
-
-				// 2. Count supervised activities
-				if (s.enrollments) {
-					for (const enrollment of s.enrollments) {
-						if (enrollment.activity_id && !uniqueActivityIds.includes(enrollment.activity_id)) {
-							uniqueActivityIds.push(enrollment.activity_id);
-						}
-					}
-				}
-
-				// 3. Group by Batch / Course / Semester
+				// Group by Batch / Course / Semester
 				if (admin) {
 					const batch = s.roll_no?.match(/^[A-Z]+2K\d+/)?.[0] ?? admin.assigned_batch ?? 'Unknown';
 					const course = s.course_name || '—';
@@ -209,9 +186,6 @@
 				}
 			}
 
-			verifiedCertificatesCount = verified;
-			pendingReviewsCount = pending;
-			activitiesSupervisedCount = uniqueActivityIds.length;
 			assignedBatches = grouped;
 		} catch (err) {
 			console.error('Error fetching admin profile stats:', err);
@@ -335,9 +309,9 @@
 						</div>
 					</div>
 
-					<!-- Details Grid -->
+					<!-- Details Grid (Only fields backed by DB data) -->
 					<div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3.5 gap-x-8 text-xs leading-normal">
-						<!-- Department -->
+						<!-- Admin ID -->
 						<div class="flex items-center gap-3">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -350,33 +324,11 @@
 								<path
 									stroke-linecap="round"
 									stroke-linejoin="round"
-									d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m0 0a8.984 8.984 0 0 1 3.224-3.357m8.816-2.13A4.9 4.9 0 0 0 16 7.5c0-.985-.29-1.902-.79-2.671M12 18.75h-1.5V1.5h1.5v17.25Z"
+									d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
 								/>
 							</svg>
 							<div class="flex items-center gap-1.5">
-								<span class="text-slate-500 font-semibold">Department:</span>
-								<span class="font-bold text-slate-800">-</span>
-							</div>
-						</div>
-
-						<!-- Employee ID -->
-						<div class="flex items-center gap-3">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-								stroke="currentColor"
-								class="w-4 h-4 text-slate-400 shrink-0"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm-1.2 6.477a3.375 3.375 0 00-5.1 0 2.25 2.25 0 002.25 2.25h.6a2.25 2.25 0 002.25-2.25v-.15z"
-								/>
-							</svg>
-							<div class="flex items-center gap-1.5">
-								<span class="text-slate-500 font-semibold">Employee ID:</span>
+								<span class="text-slate-500 font-semibold">Admin ID:</span>
 								<span class="font-bold text-slate-800">{admin.admin_id}</span>
 							</div>
 						</div>
@@ -403,7 +355,7 @@
 							</div>
 						</div>
 
-						<!-- Contact -->
+						<!-- Role -->
 						<div class="flex items-center gap-3">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -416,17 +368,19 @@
 								<path
 									stroke-linecap="round"
 									stroke-linejoin="round"
-									d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.824-1.502-5.184-3.864-6.686-6.686l1.294-.97c.362-.272.528-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25z"
+									d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068"
 								/>
 							</svg>
 							<div class="flex items-center gap-1.5">
-								<span class="text-slate-500 font-semibold">Contact:</span>
-								<span class="font-bold text-slate-800">-</span>
+								<span class="text-slate-500 font-semibold">Role:</span>
+								<span class="font-bold text-slate-800 capitalize"
+									>{admin.role === 'superadmin' ? 'Super Admin' : 'Batch Coordinator'}</span
+								>
 							</div>
 						</div>
 
-						<!-- Office Location -->
-						<div class="flex items-center gap-3 sm:col-span-2">
+						<!-- Assigned Batch -->
+						<div class="flex items-center gap-3">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								fill="none"
@@ -438,17 +392,14 @@
 								<path
 									stroke-linecap="round"
 									stroke-linejoin="round"
-									d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-								/>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+									d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.9c4.956-1.9 8.219-4.787 8.219-4.787a60.43 60.43 0 0 0-.491-6.347M3.75 10.147 12 4.25l8.25 5.897m-16.5 0L12 16.023l8.25-5.876M8.25 10.147V16.5L12 19.5"
 								/>
 							</svg>
 							<div class="flex items-center gap-1.5">
-								<span class="text-slate-500 font-semibold">Office Location:</span>
-								<span class="font-bold text-slate-800">-</span>
+								<span class="text-slate-500 font-semibold">Assigned Batch:</span>
+								<span class="font-bold text-slate-800">
+									{admin.assigned_batch || 'All Batches (Global)'}
+								</span>
 							</div>
 						</div>
 					</div>
@@ -529,45 +480,15 @@
 				</div>
 			</div>
 
-			<!-- Administrative Overview Card -->
-			<div class="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col">
-				<h3 class="text-xs font-bold text-slate-405 tracking-wider uppercase font-sans mb-5">
-					Administrative Overview
-				</h3>
+			<!-- Administrative Overview Row (DB-backed statistics only) -->
+			{#if !loading && !error && admin}
+				<div class="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col">
+					<h3 class="text-xs font-bold text-slate-405 tracking-wider uppercase font-sans mb-5">
+						Administrative Overview
+					</h3>
 
-				{#if statsLoading}
-					<!-- Stats Loading State -->
-					<div class="grid grid-cols-2 gap-4 flex-grow items-center">
-						{#each Array(4) as _}
-							<div
-								class="bg-slate-50 border border-slate-150 rounded-xl p-4 flex flex-col items-center justify-center animate-pulse h-28"
-							>
-								<div class="w-8 h-8 rounded-full bg-slate-200"></div>
-								<div class="h-6 bg-slate-200 rounded w-1/3 mt-3"></div>
-								<div class="h-3 bg-slate-200 rounded w-2/3 mt-2"></div>
-							</div>
-						{/each}
-					</div>
-				{:else if statsError}
-					<!-- Stats Empty State Placeholder -->
-					<div class="grid grid-cols-2 gap-4 flex-grow">
-						{#each ['Assigned Students', 'Certificates Verified', 'Pending Reviews', 'Activities Supervised'] as label}
-							<div
-								class="bg-slate-50 border border-slate-150 rounded-xl p-4 flex flex-col items-center text-center justify-center"
-							>
-								<span class="text-2xl font-bold font-serif text-slate-400 mt-3 leading-none">—</span
-								>
-								<span
-									class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2 leading-tight"
-								>
-									{label}
-								</span>
-							</div>
-						{/each}
-					</div>
-				{:else}
 					<!-- Stats Content -->
-					<div class="grid grid-cols-2 gap-4 flex-grow">
+					<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-grow">
 						<!-- Assigned Students -->
 						<div
 							class="bg-slate-50 border border-slate-150 rounded-xl p-4 flex flex-col items-center text-center justify-center hover:shadow-2xs transition-shadow"
@@ -591,7 +512,7 @@
 								</svg>
 							</div>
 							<span class="text-2xl font-bold font-serif text-slate-900 mt-3 leading-none">
-								{assignedStudentsCount}
+								{stats?.assigned_students ?? 0}
 							</span>
 							<span
 								class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-2 leading-tight"
@@ -623,7 +544,7 @@
 								</svg>
 							</div>
 							<span class="text-2xl font-bold font-serif text-slate-900 mt-3 leading-none">
-								{verifiedCertificatesCount}
+								{stats?.verified_certificates ?? 0}
 							</span>
 							<span
 								class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-2 leading-tight"
@@ -655,7 +576,7 @@
 								</svg>
 							</div>
 							<span class="text-2xl font-bold font-serif text-slate-900 mt-3 leading-none">
-								{pendingReviewsCount}
+								{stats?.pending_reviews ?? 0}
 							</span>
 							<span
 								class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-2 leading-tight"
@@ -687,7 +608,7 @@
 								</svg>
 							</div>
 							<span class="text-2xl font-bold font-serif text-slate-900 mt-3 leading-none">
-								{activitiesSupervisedCount}
+								{stats?.supervised_activities ?? 0}
 							</span>
 							<span
 								class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-2 leading-tight"
@@ -696,228 +617,83 @@
 							</span>
 						</div>
 					</div>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
-	<!-- Account Security & Assigned Batches Row -->
+	<!-- Assigned Batches Row -->
 	{#if !loading && !error && admin}
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-			<!-- Account Security Card -->
-			<div class="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col">
-				<h3 class="text-xs font-bold text-slate-405 tracking-wider uppercase font-sans mb-5">
-					Account Security
-				</h3>
+		<!-- Assigned Batches Card -->
+		<div class="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col">
+			<h3 class="text-xs font-bold text-slate-405 tracking-wider uppercase font-sans mb-5">
+				Assigned Batches
+			</h3>
 
-				<div class="flex-grow space-y-1">
-					<!-- Email Verification -->
-					<div
-						class="flex items-center justify-between py-3 border-b border-slate-100 text-xs font-semibold text-slate-700"
-					>
-						<div class="flex items-center gap-2.5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-								stroke="currentColor"
-								class="w-4 h-4 text-slate-400"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068"
-								/>
-							</svg>
-							<span>Email Verification</span>
-						</div>
-						<span class="text-emerald-600 font-bold">Verified</span>
-					</div>
-
-					<!-- Two-Factor Authentication -->
-					<div
-						class="flex items-center justify-between py-3 border-b border-slate-100 text-xs font-semibold text-slate-700"
-					>
-						<div class="flex items-center gap-2.5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-								stroke="currentColor"
-								class="w-4 h-4 text-slate-400"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M9 12.75 11.25 15 15 9.75m-3-3.75h.008v.008H12V9Z"
-								/>
-							</svg>
-							<span>Two-Factor Authentication</span>
-						</div>
-						<span class="text-slate-400 font-normal">Disabled</span>
-					</div>
-
-					<!-- Last Password Change -->
-					<div
-						class="flex items-center justify-between py-3 border-b border-slate-100 text-xs font-semibold text-slate-700"
-					>
-						<div class="flex items-center gap-2.5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-								stroke="currentColor"
-								class="w-4 h-4 text-slate-400"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H3.75v-2.25H6V17.25h2.25v-2.25h1.5l1.688-1.688a1.5 1.5 0 011.06-.439c.362 0 .71-.143.963-.398L15.75 5.25Z"
-								/>
-							</svg>
-							<span>Last Password Change</span>
-						</div>
-						<span class="text-slate-400 font-normal">—</span>
-					</div>
-
-					<!-- Last Login -->
-					<div
-						class="flex items-center justify-between py-3 border-b border-slate-100 text-xs font-semibold text-slate-700"
-					>
-						<div class="flex items-center gap-2.5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-								stroke="currentColor"
-								class="w-4 h-4 text-slate-400"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-								/>
-							</svg>
-							<span>Last Login</span>
-						</div>
-						<span class="text-slate-400 font-normal">—</span>
-					</div>
-
-					<!-- Login Devices -->
-					<div class="flex items-center justify-between py-3 text-xs font-semibold text-slate-700">
-						<div class="flex items-center gap-2.5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-								stroke="currentColor"
-								class="w-4 h-4 text-slate-400"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
-								/>
-							</svg>
-							<span>Login Devices</span>
-						</div>
-						<span class="text-slate-805 font-bold">Current Session</span>
-					</div>
-				</div>
-
-				<!-- Action buttons -->
-				<div class="grid grid-cols-2 gap-3 mt-6 pt-5 border-t border-slate-100">
-					<button
-						type="button"
-						class="px-4 py-2 border border-slate-250 hover:bg-slate-50 text-slate-800 bg-white rounded-lg text-xs font-bold transition-colors cursor-pointer focus:outline-none text-center shadow-3xs"
-					>
-						Manage Security
-					</button>
-					<button
-						type="button"
-						class="px-4 py-2 border border-slate-250 hover:bg-slate-50 text-slate-800 bg-white rounded-lg text-xs font-bold transition-colors cursor-pointer focus:outline-none text-center shadow-3xs"
-					>
-						View Login History
-					</button>
-				</div>
-			</div>
-
-			<!-- Assigned Batches Card -->
-			<div class="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col">
-				<h3 class="text-xs font-bold text-slate-405 tracking-wider uppercase font-sans mb-5">
-					Assigned Batches
-				</h3>
-
-				<div class="flex-grow overflow-x-auto">
-					<table class="w-full text-left text-xs border-collapse">
-						<thead>
-							<tr
-								class="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest"
-							>
-								<th class="pb-3 font-semibold">Batch</th>
-								<th class="pb-3 font-semibold">Course</th>
-								<th class="pb-3 font-semibold">Semester</th>
-								<th class="pb-3 font-semibold text-right">Students</th>
+			<div class="flex-grow overflow-x-auto">
+				<table class="w-full text-left text-xs border-collapse">
+					<thead>
+						<tr
+							class="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest"
+						>
+							<th class="pb-3 font-semibold">Batch</th>
+							<th class="pb-3 font-semibold">Course</th>
+							<th class="pb-3 font-semibold">Semester</th>
+							<th class="pb-3 font-semibold text-right">Students</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#if statsLoading}
+							<!-- Loading Rows -->
+							{#each Array(2) as _}
+								<tr class="animate-pulse border-b border-slate-50 last:border-b-0">
+									<td class="py-3.5"><div class="h-4 bg-slate-200 rounded w-16"></div></td>
+									<td class="py-3.5"><div class="h-4 bg-slate-200 rounded w-12"></div></td>
+									<td class="py-3.5"><div class="h-4 bg-slate-200 rounded w-20"></div></td>
+									<td class="py-3.5 text-right"
+										><div class="h-4 bg-slate-200 rounded w-16 ml-auto"></div></td
+									>
+								</tr>
+							{/each}
+						{:else if statsError || assignedBatches.length === 0}
+							<!-- Empty state placeholder -->
+							<tr>
+								<td colspan="4" class="py-12 text-center text-slate-400 font-medium font-sans">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="w-8 h-8 mx-auto mb-2 text-slate-300"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
+										/>
+									</svg>
+									No assigned batches available
+								</td>
 							</tr>
-						</thead>
-						<tbody>
-							{#if statsLoading}
-								<!-- Loading Rows -->
-								{#each Array(2) as _}
-									<tr class="animate-pulse border-b border-slate-50 last:border-b-0">
-										<td class="py-3.5"><div class="h-4 bg-slate-200 rounded w-16"></div></td>
-										<td class="py-3.5"><div class="h-4 bg-slate-200 rounded w-12"></div></td>
-										<td class="py-3.5"><div class="h-4 bg-slate-200 rounded w-20"></div></td>
-										<td class="py-3.5 text-right"
-											><div class="h-4 bg-slate-200 rounded w-16 ml-auto"></div></td
+						{:else}
+							{#each assignedBatches as b}
+								<tr class="border-b border-slate-50 last:border-b-0 font-semibold text-slate-800">
+									<td class="py-3.5 text-slate-900 font-bold">{b.batch}</td>
+									<td class="py-3.5 text-slate-500">{b.course}</td>
+									<td class="py-3.5 text-slate-500">{b.semester}</td>
+									<td class="py-3.5 text-right">
+										<span
+											class="px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[10px] font-bold"
 										>
-									</tr>
-								{/each}
-							{:else if statsError || assignedBatches.length === 0}
-								<!-- Empty state placeholder -->
-								<tr>
-									<td colspan="4" class="py-12 text-center text-slate-400 font-medium font-sans">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke-width="1.5"
-											stroke="currentColor"
-											class="w-8 h-8 mx-auto mb-2 text-slate-300"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
-											/>
-										</svg>
-										No assigned batches available
+											{b.studentCount} Students
+										</span>
 									</td>
 								</tr>
-							{:else}
-								{#each assignedBatches as b}
-									<tr class="border-b border-slate-50 last:border-b-0 font-semibold text-slate-800">
-										<td class="py-3.5 text-slate-900 font-bold">{b.batch}</td>
-										<td class="py-3.5 text-slate-500">{b.course}</td>
-										<td class="py-3.5 text-slate-500">{b.semester}</td>
-										<td class="py-3.5 text-right">
-											<span
-												class="px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[10px] font-bold"
-											>
-												{b.studentCount} Students
-											</span>
-										</td>
-									</tr>
-								{/each}
-							{/if}
-						</tbody>
-					</table>
-				</div>
+							{/each}
+						{/if}
+					</tbody>
+				</table>
 			</div>
 		</div>
 	{/if}

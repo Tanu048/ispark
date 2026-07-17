@@ -243,4 +243,226 @@ func TestUpdateAdminProfile(t *testing.T) {
 			t.Errorf("Expected 409, got %d", resp.StatusCode)
 		}
 	})
+
+	// 6. Name overlong (> 100) -> 400
+	t.Run("UpdateAdminProfile_NameOverlong", func(t *testing.T) {
+		overlongName := strings.Repeat("A", 101)
+		body := `{"name":"` + overlongName + `","email":"valid.name@isparc.dev"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 7. Name boundary condition (exactly 100) -> 200
+	t.Run("UpdateAdminProfile_NameBoundary", func(t *testing.T) {
+		boundaryName := strings.Repeat("A", 100)
+		body := `{"name":"` + boundaryName + `","email":"valid.name@isparc.dev"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200, got %d", resp.StatusCode)
+		}
+	})
+
+	// 8. Email overlong (> 100) -> 400
+	t.Run("UpdateAdminProfile_EmailOverlong", func(t *testing.T) {
+		overlongEmail := strings.Repeat("a", 90) + "@isparc.dev"
+		body := `{"name":"Valid Name","email":"` + overlongEmail + `"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 9. Email boundary condition (exactly 100) -> 200
+	t.Run("UpdateAdminProfile_EmailBoundary", func(t *testing.T) {
+		boundaryEmail := strings.Repeat("a", 89) + "@isparc.dev"
+		body := `{"name":"Valid Name","email":"` + boundaryEmail + `"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200, got %d", resp.StatusCode)
+		}
+	})
+}
+
+func TestAdminChangePassword(t *testing.T) {
+	t.Setenv("JWT_SECRET", strings.Repeat("test-jwt-", 4))
+	t.Setenv("JWT_REFRESH_SECRET", strings.Repeat("test-refresh-jwt-", 4))
+
+	SetupAdminTestDB(t)
+
+	app := fiber.New()
+	routes.SetupRoutes(app)
+
+	hashedPassword, _ := utils.HashPassword("Password123!")
+	testAdmin := models.Admin{
+		AdminID:       "passwordadmin",
+		Name:          "Password Admin",
+		Email:         "pw.admin@isparc.dev",
+		Password:      hashedPassword,
+		Role:          "admin",
+		AssignedBatch: "IT2K20",
+	}
+	config.DB.Create(&testAdmin)
+
+	token, err := utils.GenerateAccessToken(testAdmin.AdminID, testAdmin.Email, testAdmin.Role)
+	if err != nil {
+		t.Fatalf("Failed to generate token: %v", err)
+	}
+
+	// 1. Valid password succeeds -> 200
+	t.Run("ChangePassword_Success", func(t *testing.T) {
+		body := `{"current_password":"Password123!","new_password":"NewPassword123!","confirm_password":"NewPassword123!"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200, got %d", resp.StatusCode)
+		}
+	})
+
+	// 2. Mismatched passwords -> 400
+	t.Run("ChangePassword_Mismatched", func(t *testing.T) {
+		body := `{"current_password":"NewPassword123!","new_password":"ValidPassword123!","confirm_password":"DifferentPassword123!"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 3. Incorrect current password -> 401
+	t.Run("ChangePassword_WrongCurrentPassword", func(t *testing.T) {
+		body := `{"current_password":"WrongCurrentPassword123","new_password":"ValidPassword123!","confirm_password":"ValidPassword123!"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected 401, got %d", resp.StatusCode)
+		}
+	})
+
+	// 4. Weak password: too short (< 8 chars) -> 400
+	t.Run("ChangePassword_TooShort", func(t *testing.T) {
+		body := `{"current_password":"NewPassword123!","new_password":"Ab1!","confirm_password":"Ab1!"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 5. Weak password: no number -> 400
+	t.Run("ChangePassword_NoNumber", func(t *testing.T) {
+		body := `{"current_password":"NewPassword123!","new_password":"NoNumberPass!","confirm_password":"NoNumberPass!"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 6. Weak password: no special char -> 400
+	t.Run("ChangePassword_NoSpecialChar", func(t *testing.T) {
+		body := `{"current_password":"NewPassword123!","new_password":"NoSpecialChar123","confirm_password":"NoSpecialChar123"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 7. Weak password: no uppercase -> 400
+	t.Run("ChangePassword_NoUppercase", func(t *testing.T) {
+		body := `{"current_password":"NewPassword123!","new_password":"nouppercase123!","confirm_password":"nouppercase123!"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 8. Weak password: no lowercase -> 400
+	t.Run("ChangePassword_NoLowercase", func(t *testing.T) {
+		body := `{"current_password":"NewPassword123!","new_password":"NOLOWERCASE123!","confirm_password":"NOLOWERCASE123!"}`
+		req := httptest.NewRequest("POST", "/api/admin/change-password", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
 }

@@ -23,6 +23,12 @@
 	}
 
 	let admin = $state<AdminProfile | null>(null);
+	let stats = $state<{
+		assigned_students: number;
+		verified_certificates: number;
+		pending_reviews: number;
+		supervised_activities: number;
+	} | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -51,6 +57,7 @@
 
 			const data = await response.json();
 			admin = data.admin;
+			stats = data.stats;
 		} catch (err) {
 			console.error(err);
 			error = err instanceof Error ? err.message : 'An error occurred';
@@ -492,12 +499,16 @@
 					{admin}
 					{loading}
 					{error}
+					{stats}
 					onEditProfile={() => (currentTab = 'Edit Profile')}
 				/>
 			{:else if currentTab === 'Edit Profile'}
 				<AdminEditProfileView
 					{admin}
-					onSave={(updated) => (admin = updated)}
+					onSave={(updatedAdmin, updatedStats) => {
+						admin = updatedAdmin;
+						stats = updatedStats;
+					}}
 					onCancel={() => (currentTab = 'Profile')}
 				/>
 			{:else}

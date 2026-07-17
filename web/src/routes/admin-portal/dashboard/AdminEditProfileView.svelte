@@ -21,7 +21,15 @@
 		onCancel
 	}: {
 		admin: AdminProfile | null;
-		onSave: (updatedAdmin: AdminProfile) => void;
+		onSave: (
+			updatedAdmin: AdminProfile,
+			stats: {
+				assigned_students: number;
+				verified_certificates: number;
+				pending_reviews: number;
+				supervised_activities: number;
+			} | null
+		) => void;
 		onCancel: () => void;
 	} = $props();
 
@@ -102,7 +110,7 @@
 
 			// Notify parent layout about updated data
 			if (data.admin) {
-				onSave(data.admin);
+				onSave(data.admin, data.stats);
 			}
 
 			setTimeout(() => {
