@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,6 +10,12 @@ import (
 	"github.com/iips-oss/ispark/api/utils"
 	"gorm.io/gorm"
 )
+
+var emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+func isValidEmail(email string) bool {
+	return emailRegexp.MatchString(email)
+}
 
 func errJSON(c *fiber.Ctx, status int, msg string) error {
 	return c.Status(status).JSON(fiber.Map{"error": msg})
@@ -233,13 +240,24 @@ func UpdateAdminProfile(c *fiber.Ctx) error {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Email = strings.TrimSpace(input.Email)
 
-	if input.Name == "" || input.Email == "" {
-		return errJSON(c, fiber.StatusBadRequest, "Name and Email are required")
+	if input.Name == "" {
+		return errJSON(c, fiber.StatusBadRequest, "Name is required")
 	}
 
-	// Check if email already exists for another admin
+	if input.Email == "" {
+		return errJSON(c, fiber.StatusBadRequest, "Email is required")
+	}
+
+	if !isValidEmail(input.Email) {
+		return errJSON(c, fiber.StatusBadRequest, "Invalid email format")
+	}
+
+	// Normalize email to lowercase
+	input.Email = strings.ToLower(input.Email)
+
+	// Check if email already exists for another admin case-insensitively
 	var existing models.Admin
-	if err := config.DB.Where("email = ? AND admin_id <> ?", input.Email, admin.AdminID).First(&existing).Error; err == nil {
+	if err := config.DB.Where("LOWER(email) = ? AND admin_id <> ?", input.Email, admin.AdminID).First(&existing).Error; err == nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error": "Email already exists.",
 		})

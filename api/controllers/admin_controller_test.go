@@ -108,3 +108,139 @@ func TestGetAdminProfile(t *testing.T) {
 		}
 	})
 }
+
+func TestUpdateAdminProfile(t *testing.T) {
+	t.Setenv("JWT_SECRET", strings.Repeat("test-jwt-", 4))
+	t.Setenv("JWT_REFRESH_SECRET", strings.Repeat("test-refresh-jwt-", 4))
+
+	SetupAdminTestDB(t)
+
+	app := fiber.New()
+	routes.SetupRoutes(app)
+
+	// Seed admins for testing conflicts
+	hashedPassword, _ := utils.HashPassword("Password123")
+	testAdmin := models.Admin{
+		AdminID:       "admin1",
+		Name:          "Admin One",
+		Email:         "admin1@isparc.dev",
+		Password:      hashedPassword,
+		Role:          "admin",
+		AssignedBatch: "IT2K20",
+	}
+	config.DB.Create(&testAdmin)
+
+	otherAdmin := models.Admin{
+		AdminID:       "admin2",
+		Name:          "Admin Two",
+		Email:         "admin2@isparc.dev",
+		Password:      hashedPassword,
+		Role:          "admin",
+		AssignedBatch: "IT2K20",
+	}
+	config.DB.Create(&otherAdmin)
+
+	token, err := utils.GenerateAccessToken(testAdmin.AdminID, testAdmin.Email, testAdmin.Role)
+	if err != nil {
+		t.Fatalf("Failed to generate token: %v", err)
+	}
+
+	// 1. Success case: Update own name and email
+	t.Run("UpdateAdminProfile_Success", func(t *testing.T) {
+		body := `{"name":"Admin One Updated","email":"new.admin1@isparc.dev"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200, got %d", resp.StatusCode)
+		}
+
+		// Verify database state
+		var dbAdmin models.Admin
+		config.DB.Where("admin_id = ?", testAdmin.AdminID).First(&dbAdmin)
+		if dbAdmin.Name != "Admin One Updated" {
+			t.Errorf("Expected name 'Admin One Updated', got %s", dbAdmin.Name)
+		}
+		if dbAdmin.Email != "new.admin1@isparc.dev" {
+			t.Errorf("Expected email 'new.admin1@isparc.dev', got %s", dbAdmin.Email)
+		}
+	})
+
+	// 2. Blank name after trim -> 400
+	t.Run("UpdateAdminProfile_BlankName", func(t *testing.T) {
+		body := `{"name":"   ","email":"valid@isparc.dev"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	// 3. Invalid email format -> 400
+	invalidEmails := []string{
+		"not-an-email",
+		"@@@",
+		"admin@",
+		"a@b",
+		"  x  ",
+	}
+	for _, email := range invalidEmails {
+		t.Run("UpdateAdminProfile_InvalidEmail_"+email, func(t *testing.T) {
+			body := `{"name":"Valid Name","email":"` + email + `"}`
+			req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("Failed to execute request: %v", err)
+			}
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("Expected 400 for email '%s', got %d", email, resp.StatusCode)
+			}
+		})
+	}
+
+	// 4. Duplicate email (exact case) -> 409
+	t.Run("UpdateAdminProfile_DuplicateEmail_Exact", func(t *testing.T) {
+		body := `{"name":"Valid Name","email":"admin2@isparc.dev"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusConflict {
+			t.Errorf("Expected 409, got %d", resp.StatusCode)
+		}
+	})
+
+	// 5. Duplicate email (different case) -> 409
+	t.Run("UpdateAdminProfile_DuplicateEmail_DifferentCase", func(t *testing.T) {
+		body := `{"name":"Valid Name","email":"ADMIN2@isparc.dev"}`
+		req := httptest.NewRequest("PUT", "/api/admin/profile", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if resp.StatusCode != http.StatusConflict {
+			t.Errorf("Expected 409, got %d", resp.StatusCode)
+		}
+	})
+}
