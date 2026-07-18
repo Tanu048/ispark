@@ -531,7 +531,9 @@ func writeReportFile(reportType string, rows [][]string) (fileName, filePath str
 	if err != nil {
 		return "", "", 0, err
 	}
-	defer file.Close()
+	// Cleanup on any early return; the success path closes explicitly below and
+	// checks the error, since a failed close means the report was not fully written.
+	defer func() { _ = file.Close() }()
 
 	writer := csv.NewWriter(file)
 	if err = writer.WriteAll(rows); err != nil {
@@ -544,6 +546,10 @@ func writeReportFile(reportType string, rows [][]string) (fileName, filePath str
 
 	info, err := file.Stat()
 	if err != nil {
+		return "", "", 0, err
+	}
+
+	if err = file.Close(); err != nil {
 		return "", "", 0, err
 	}
 
