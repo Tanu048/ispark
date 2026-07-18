@@ -654,40 +654,64 @@
 	// Report activity audit log, loaded from the API.
 	let reportAuditLog = $state<{ action: string; type: string; user: string; time: string }[]>([]);
 
-	// Institutional overview snapshot
-	const institutionalStats = [
-		{ value: '3,842', label: 'Registered Students', color: 'text-indigo-600' },
-		{ value: '3,614', label: 'Active Students', color: 'text-emerald-600' },
-		{ value: '284', label: 'Activities Conducted', color: 'text-purple-600' },
-		{ value: '18.4', label: 'Avg Credits Earned', color: 'text-amber-600' }
-	];
+	// Institutional overview, loaded from the API.
+	let institutionalRaw = $state({
+		registered_students: 0,
+		active_students: 0,
+		activities_conducted: 0,
+		avg_credits: 0
+	});
 
-	// Avg score by department (bar chart)
-	const deptScores = [
-		{ dept: 'MCA', score: 88 },
-		{ dept: 'MBA', score: 76 },
-		{ dept: 'BCA', score: 71 },
-		{ dept: 'B.Com', score: 63 },
-		{ dept: 'BBA', score: 82 },
-		{ dept: 'MSc CS', score: 85 }
-	];
+	// Stat cards keep their fixed labels/colours; only the values come from the API.
+	const institutionalStats = $derived([
+		{
+			value: institutionalRaw.registered_students.toLocaleString(),
+			label: 'Registered Students',
+			color: 'text-indigo-600'
+		},
+		{
+			value: institutionalRaw.active_students.toLocaleString(),
+			label: 'Active Students',
+			color: 'text-emerald-600'
+		},
+		{
+			value: institutionalRaw.activities_conducted.toLocaleString(),
+			label: 'Activities Conducted',
+			color: 'text-purple-600'
+		},
+		{
+			value: institutionalRaw.avg_credits.toFixed(1),
+			label: 'Avg Credits Earned',
+			color: 'text-amber-600'
+		}
+	]);
 
-	// Monthly participation trend (dual line)
-	const participationMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-	const activitiesTrend = [40, 46, 50, 45, 62, 70];
-	const certificatesTrend = [36, 41, 47, 43, 54, 66];
-	const trendMax = 80;
-	const trendMin = 20;
-	const trendLine = (data: number[]) =>
-		data
+	// Avg earned credits per student, per department. The chart's y-axis runs 0–100,
+	// which matches the 100-credit graduation target, so scores map directly.
+	let deptScores = $state<{ dept: string; score: number }[]>([]);
+
+	// Monthly participation trend (dual line), loaded from the API.
+	let participationMonths = $state<string[]>([]);
+	let activitiesTrend = $state<number[]>([]);
+	let certificatesTrend = $state<number[]>([]);
+
+	// The trend chart scales to the data: the y-axis top is the largest value seen
+	// (floored at 4 so a near-empty chart still reads sensibly).
+	const trendMin = 0;
+	const trendMax = $derived(Math.max(4, ...activitiesTrend, ...certificatesTrend));
+	const trendAxisLabels = $derived([1, 0.75, 0.5, 0.25].map((f) => Math.round(trendMax * f)));
+
+	function trendLine(data: number[]): string {
+		return data
 			.map((v, i) => {
-				const x = (i / (data.length - 1)) * 100;
+				const x = data.length > 1 ? (i / (data.length - 1)) * 100 : 0;
 				const y = 40 - ((v - trendMin) / (trendMax - trendMin)) * 36 - 2;
 				return `${x},${y}`;
 			})
 			.join(' ');
-	const activitiesPoints = trendLine(activitiesTrend);
-	const certificatesPoints = trendLine(certificatesTrend);
+	}
+	const activitiesPoints = $derived(trendLine(activitiesTrend));
+	const certificatesPoints = $derived(trendLine(certificatesTrend));
 
 	// ── Reports Center: API wiring ──────────────────────────────────────────────
 
@@ -768,20 +792,34 @@
 
 	async function loadReportsData() {
 		try {
-			const [summaryRes, reportsRes, scheduledRes, countsRes, auditRes, templatesRes] =
-				await Promise.all([
-					fetch(`${reportsBase}/summary`, { headers: authHeaders() }),
-					fetch(`${reportsBase}`, { headers: authHeaders() }),
-					fetch(`${reportsBase}/scheduled`, { headers: authHeaders() }),
-					fetch(`${reportsBase}/export/counts`, { headers: authHeaders() }),
-					fetch(`${reportsBase}/audit`, { headers: authHeaders() }),
-					fetch(`${reportsBase}/templates`, { headers: authHeaders() })
-				]);
+			const [
+				summaryRes,
+				reportsRes,
+				scheduledRes,
+				countsRes,
+				auditRes,
+				templatesRes,
+				institutionalRes
+			] = await Promise.all([
+				fetch(`${reportsBase}/summary`, { headers: authHeaders() }),
+				fetch(`${reportsBase}`, { headers: authHeaders() }),
+				fetch(`${reportsBase}/scheduled`, { headers: authHeaders() }),
+				fetch(`${reportsBase}/export/counts`, { headers: authHeaders() }),
+				fetch(`${reportsBase}/audit`, { headers: authHeaders() }),
+				fetch(`${reportsBase}/templates`, { headers: authHeaders() }),
+				fetch(`${reportsBase}/institutional`, { headers: authHeaders() })
+			]);
 
 			if (
-				[summaryRes, reportsRes, scheduledRes, countsRes, auditRes, templatesRes].some(
-					(res) => res.status === 401
-				)
+				[
+					summaryRes,
+					reportsRes,
+					scheduledRes,
+					countsRes,
+					auditRes,
+					templatesRes,
+					institutionalRes
+				].some((res) => res.status === 401)
 			) {
 				localStorage.removeItem('superadmin_token');
 				await goto('/super-admin-portal');
@@ -851,6 +889,15 @@
 						type: tpl.type
 					})
 				);
+			}
+
+			if (institutionalRes.ok) {
+				const { stats, department_scores, trend } = await institutionalRes.json();
+				institutionalRaw = stats ?? institutionalRaw;
+				deptScores = department_scores ?? [];
+				participationMonths = trend?.months ?? [];
+				activitiesTrend = trend?.activities ?? [];
+				certificatesTrend = trend?.certificates ?? [];
 			}
 		} catch {
 			loadError = 'Could not load reports data. Please try again.';
@@ -2970,7 +3017,7 @@
 							<!-- Avg score by department (bar chart) -->
 							<div>
 								<span class="text-[10px] font-extrabold text-slate-405 uppercase tracking-wider"
-									>Avg Score by Department</span
+									>Avg Credits by Department</span
 								>
 								<div class="mt-3 flex gap-2">
 									<div
@@ -2990,8 +3037,8 @@
 													<div class="flex-1 flex items-end justify-center h-full">
 														<div
 															class="w-full max-w-[26px] rounded-t bg-gradient-to-t from-[#881B1B] to-[#C23A3A] transition-all"
-															style="height: {d.score}%"
-															title="{d.dept}: {d.score}"
+															style="height: {Math.min(d.score, 100)}%"
+															title="{d.dept}: {d.score} avg credits"
 														></div>
 													</div>
 												{/each}
@@ -3027,7 +3074,9 @@
 									<div
 										class="flex flex-col justify-between h-24 text-[9px] font-bold text-slate-300 text-right shrink-0"
 									>
-										<span>80</span><span>60</span><span>40</span><span>20</span>
+										{#each trendAxisLabels as lbl, lblIndex (lblIndex)}
+											<span>{lbl}</span>
+										{/each}
 									</div>
 									<div class="flex-1 min-w-0">
 										<div class="relative h-24">

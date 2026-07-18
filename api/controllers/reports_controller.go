@@ -5,9 +5,11 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1031,4 +1033,138 @@ func GetReportAuditLog(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"logs": entries, "total": total, "limit": limit, "offset": offset})
+}
+
+// ---------------------------------------------------------------------------
+// Institutional overview
+// ---------------------------------------------------------------------------
+
+// maxOverviewDepartments caps how many departments the overview bar chart shows,
+// so the fixed-width chart stays readable.
+const maxOverviewDepartments = 8
+
+// GetInstitutionalOverview returns the headline figures, per-department credit
+// averages and a six-month participation trend for the Reports Center's
+// Institutional Overview panel. Everything is computed from live platform data.
+func GetInstitutionalOverview(c *fiber.Ctx) error {
+	var registered, active, activities, totalCredits int64
+
+	if err := config.DB.Model(&models.Student{}).Count(&registered).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load overview"})
+	}
+	if err := config.DB.Model(&models.Student{}).Where("is_verified = ?", true).Count(&active).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load overview"})
+	}
+	if err := config.DB.Model(&models.Activity{}).Count(&activities).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load overview"})
+	}
+	if err := config.DB.Model(&models.Certificate{}).Where("status = ?", "Approved").
+		Select("COALESCE(SUM(credits), 0)").Scan(&totalCredits).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load overview"})
+	}
+
+	avgCredits := 0.0
+	if registered > 0 {
+		avgCredits = float64(totalCredits) / float64(registered)
+	}
+
+	departmentScores, err := departmentScores()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load overview"})
+	}
+
+	months, activityTrend, certificateTrend, err := participationTrend()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load overview"})
+	}
+
+	return c.JSON(fiber.Map{
+		"stats": fiber.Map{
+			"registered_students":  registered,
+			"active_students":      active,
+			"activities_conducted": activities,
+			"avg_credits":          avgCredits,
+		},
+		"department_scores": departmentScores,
+		"trend": fiber.Map{
+			"months":       months,
+			"activities":   activityTrend,
+			"certificates": certificateTrend,
+		},
+	})
+}
+
+// departmentScores returns the average earned credits per student for each
+// course, highest-population courses first, capped for chart readability.
+func departmentScores() ([]fiber.Map, error) {
+	aggregates, err := buildStudentAggregates(models.GenerateReportInput{})
+	if err != nil {
+		return nil, err
+	}
+
+	type dept struct {
+		students int
+		credits  int
+	}
+	depts := map[string]*dept{}
+	var names []string
+	for _, a := range aggregates {
+		d, ok := depts[a.CourseName]
+		if !ok {
+			d = &dept{}
+			depts[a.CourseName] = d
+			names = append(names, a.CourseName)
+		}
+		d.students++
+		d.credits += a.Credits
+	}
+
+	// Busiest courses first so the capped chart shows the most representative ones.
+	sort.SliceStable(names, func(i, j int) bool {
+		return depts[names[i]].students > depts[names[j]].students
+	})
+	if len(names) > maxOverviewDepartments {
+		names = names[:maxOverviewDepartments]
+	}
+
+	scores := make([]fiber.Map, 0, len(names))
+	for _, name := range names {
+		d := depts[name]
+		score := 0
+		if d.students > 0 {
+			score = int(math.Round(float64(d.credits) / float64(d.students)))
+		}
+		scores = append(scores, fiber.Map{"dept": name, "score": score})
+	}
+	return scores, nil
+}
+
+// participationTrend returns the last six months (oldest first) with the number
+// of activities and certificates created in each, keyed by created_at.
+func participationTrend() (months []string, activityCounts, certificateCounts []int64, err error) {
+	now := time.Now().UTC()
+	currentMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+	for i := 5; i >= 0; i-- {
+		monthStart := currentMonthStart.AddDate(0, -i, 0)
+		monthEnd := monthStart.AddDate(0, 1, 0)
+		months = append(months, monthStart.Format("Jan"))
+
+		var activityCount, certificateCount int64
+		if err = config.DB.Model(&models.Activity{}).
+			Where("created_at >= ? AND created_at < ?", monthStart, monthEnd).
+			Count(&activityCount).Error; err != nil {
+			return nil, nil, nil, err
+		}
+		if err = config.DB.Model(&models.Certificate{}).
+			Where("created_at >= ? AND created_at < ?", monthStart, monthEnd).
+			Count(&certificateCount).Error; err != nil {
+			return nil, nil, nil, err
+		}
+
+		activityCounts = append(activityCounts, activityCount)
+		certificateCounts = append(certificateCounts, certificateCount)
+	}
+
+	return months, activityCounts, certificateCounts, nil
 }

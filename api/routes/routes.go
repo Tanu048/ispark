@@ -78,6 +78,7 @@ func SetupRoutes(app *fiber.App) {
 	platform.Get("/reports/export/counts", controllers.GetExportCounts)
 	platform.Get("/reports/export", controllers.ExportData)
 	platform.Get("/reports/audit", controllers.GetReportAuditLog)
+	platform.Get("/reports/institutional", controllers.GetInstitutionalOverview)
 
 	// Reports center: scheduled reports
 	platform.Get("/reports/scheduled", controllers.GetScheduledReports)
