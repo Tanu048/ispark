@@ -198,6 +198,12 @@ func scopeToAssignedBatch(query *gorm.DB, admin *models.Admin) (*gorm.DB, bool) 
 }
 
 func applyStudentStats(student *models.Student) {
+	if len(student.RollNo) >= 6 {
+		student.Batch = student.RollNo[:6]
+	} else {
+		student.Batch = "Unknown"
+	}
+
 	credits := 0
 	pending := 0
 	for _, cert := range student.Certificates {
@@ -354,7 +360,18 @@ func UpdateAdminProfile(c *fiber.Ctx) error {
 	admin.Name = input.Name
 	admin.Email = input.Email
 
-	if err := config.DB.Save(admin).Error; err != nil {
+	err = config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(admin).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.Activity{}).
+			Where("coordinator_id = ?", admin.AdminID).
+			Update("coordinator", admin.Name).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, "Failed to update profile")
 	}
 

@@ -166,7 +166,7 @@
 			for (const s of studentsList) {
 				// Group by Batch / Course / Semester
 				if (admin) {
-					const batch = s.roll_no?.match(/^[A-Z]+2K\d+/)?.[0] ?? admin.assigned_batch ?? 'Unknown';
+					const batch = s.batch ?? admin.assigned_batch ?? 'Unknown';
 					const course = s.course_name || '—';
 					const semester = s.semester ? `Semester ${s.semester}` : '—';
 

@@ -548,4 +548,121 @@ func TestSupervisedActivitiesStableOnNameChange(t *testing.T) {
 			t.Errorf("Expected supervised_activities to still be 1, got %d", supervisedCount)
 		}
 	})
+
+	// 4. Update admin name and verify the returned activity coordinator name is updated
+	t.Run("UpdateNameAndCheckVisibleActivityCoordinatorName", func(t *testing.T) {
+		// Generate student token
+		studentToken, err := utils.GenerateAccessToken("student123", "student@example.com", "student")
+		if err != nil {
+			t.Fatalf("Failed to generate student token: %v", err)
+		}
+
+		reqGetActivities := httptest.NewRequest("GET", "/api/student/activities", nil)
+		reqGetActivities.Header.Set("Authorization", "Bearer "+studentToken)
+
+		respGetActivities, err := app.Test(reqGetActivities)
+		if err != nil {
+			t.Fatalf("Failed to execute request: %v", err)
+		}
+		if respGetActivities.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200, got %d", respGetActivities.StatusCode)
+		}
+
+		var activitiesList []map[string]interface{}
+		if err := json.NewDecoder(respGetActivities.Body).Decode(&activitiesList); err != nil {
+			t.Fatalf("Failed to decode activities response: %v", err)
+		}
+
+		// Find the activity we created earlier and check its coordinator name
+		found := false
+		for _, act := range activitiesList {
+			if act["name"] == "Stable Identifier Test Activity" {
+				found = true
+				if act["coordinator"] != "New Updated Name" {
+					t.Errorf("Expected coordinator name to be 'New Updated Name', got %v", act["coordinator"])
+				}
+			}
+		}
+		if !found {
+			t.Errorf("Expected activity 'Stable Identifier Test Activity' to be found in list")
+		}
+	})
+}
+
+func TestAssignedBatchGrouping(t *testing.T) {
+	t.Setenv("JWT_SECRET", strings.Repeat("test-jwt-", 4))
+	t.Setenv("JWT_REFRESH_SECRET", strings.Repeat("test-refresh-jwt-", 4))
+
+	SetupTestDB(t)
+
+	app := fiber.New()
+	routes.SetupRoutes(app)
+
+	// 1. Seed admin assigned to batch IT2K24
+	hashedPassword, _ := utils.HashPassword("Password123!")
+	testAdmin := models.Admin{
+		AdminID:       "batchadmin",
+		Name:          "Batch Admin",
+		Email:         "batch.admin@isparc.dev",
+		Password:      hashedPassword,
+		Role:          "admin",
+		AssignedBatch: "IT2K24",
+	}
+	config.DB.Create(&testAdmin)
+
+	// 2. Seed multiple students under batch IT2K24
+	students := []models.Student{
+		{RollNo: "IT2K24011", Name: "Student A", CourseName: "CS", Semester: 6, ContactNo: "123", EmailID: "a@e.com", EnrollmentNo: "E1"},
+		{RollNo: "IT2K24012", Name: "Student B", CourseName: "CS", Semester: 6, ContactNo: "456", EmailID: "b@e.com", EnrollmentNo: "E2"},
+		{RollNo: "IT2K24013", Name: "Student C", CourseName: "CS", Semester: 6, ContactNo: "789", EmailID: "c@e.com", EnrollmentNo: "E3"},
+	}
+	for _, s := range students {
+		config.DB.Create(&s)
+	}
+
+	token, err := utils.GenerateAccessToken(testAdmin.AdminID, testAdmin.Email, testAdmin.Role)
+	if err != nil {
+		t.Fatalf("Failed to generate token: %v", err)
+	}
+
+	// 3. Fetch students and verify they all return the same canonical batch "IT2K24"
+	req := httptest.NewRequest("GET", "/api/admin/students", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed to execute request: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", resp.StatusCode)
+	}
+
+	var respBody map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	studentsList := respBody["students"].([]interface{})
+	if len(studentsList) != 3 {
+		t.Fatalf("Expected 3 students, got %d", len(studentsList))
+	}
+
+	// Group using the backend-provided batch
+	groupedBatches := make(map[string]int)
+	for _, s := range studentsList {
+		studentMap := s.(map[string]interface{})
+		batch, ok := studentMap["batch"].(string)
+		if !ok || batch == "" {
+			t.Errorf("Expected batch field to be populated on student")
+		}
+		groupedBatches[batch]++
+	}
+
+	// Verify we got exactly one grouped batch "IT2K24" with count 3
+	if len(groupedBatches) != 1 {
+		t.Errorf("Expected exactly 1 grouped batch, got %d", len(groupedBatches))
+	}
+	if count, ok := groupedBatches["IT2K24"]; !ok || count != 3 {
+		t.Errorf("Expected batch IT2K24 to have 3 students, got %d", count)
+	}
 }
