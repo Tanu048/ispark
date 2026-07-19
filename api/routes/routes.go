@@ -42,6 +42,7 @@ func SetupRoutes(app *fiber.App) {
 	student.Post("/activities/:id/enroll", controllers.EnrollActivity)
 	student.Get("/enrollments", controllers.GetEnrollments)
 	student.Get("/dashboard/stats", controllers.GetDashboardStats)
+	student.Get("/marksheet", controllers.GetMarksheet)
 
 	// Admin
 	api.Post("/admin/auth/login", controllers.AdminLogin)
@@ -67,5 +68,10 @@ func SetupRoutes(app *fiber.App) {
 	platform.Get("/users", controllers.GetPlatformUsers)
 	platform.Post("/users", controllers.CreatePlatformUser)
 	platform.Delete("/users/:id", controllers.DeletePlatformUser)
+
+	// System settings
+	platform.Get("/settings", controllers.GetPlatformSettings)
+	platform.Put("/settings", controllers.UpdatePlatformSettings)
+	platform.Put("/settings/:key", controllers.UpdatePlatformSetting)
 
 }
