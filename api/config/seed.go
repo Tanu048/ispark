@@ -40,6 +40,14 @@ func SeedDevData() {
 		return
 	}
 
+	// Map any legacy/registered course names onto the canonical list so every
+	// course-based view (reports, institutional overview) shows only the offered
+	// programs.
+	if err := normalizeStudentCourses(); err != nil {
+		log.Printf("Normalising student courses failed: %v", err)
+		return
+	}
+
 	activities, err := seedActivities()
 	if err != nil {
 		log.Printf("Seeding activities failed: %v", err)
@@ -188,14 +196,14 @@ func seedAdmins(hashedPassword string) error {
 
 func seedStudents(hashedPassword string) ([]models.Student, error) {
 	students := []models.Student{
-		{RollNo: "IT2K24011", Name: "Rahul Sharma", CourseName: "Computer Science", Semester: 6, ContactNo: "9876543210", EmailID: "rahul.sharma@iips.edu", EnrollmentNo: "EN-IT2K24011"},
-		{RollNo: "IT2K24012", Name: "Sneha Kumar", CourseName: "Computer Science", Semester: 6, ContactNo: "9876543211", EmailID: "sneha.kumar@iips.edu", EnrollmentNo: "EN-IT2K24012"},
-		{RollNo: "IT2K24013", Name: "Arjun Desai", CourseName: "Information Technology", Semester: 4, ContactNo: "9876543212", EmailID: "arjun.desai@iips.edu", EnrollmentNo: "EN-IT2K24013"},
-		{RollNo: "IT2K24014", Name: "Kavya Krishnan", CourseName: "Computer Science", Semester: 4, ContactNo: "9876543213", EmailID: "kavya.krishnan@iips.edu", EnrollmentNo: "EN-IT2K24014"},
-		{RollNo: "IT2K24015", Name: "Vikram Singh", CourseName: "Information Technology", Semester: 2, ContactNo: "9876543214", EmailID: "vikram.singh@iips.edu", EnrollmentNo: "EN-IT2K24015"},
-		{RollNo: "IT2K25001", Name: "Priya Nair", CourseName: "MCA", Semester: 2, ContactNo: "9876543215", EmailID: "priya.nair@iips.edu", EnrollmentNo: "EN-IT2K25001"},
-		{RollNo: "IT2K25002", Name: "Rohan Verma", CourseName: "MCA", Semester: 2, ContactNo: "9876543216", EmailID: "rohan.verma@iips.edu", EnrollmentNo: "EN-IT2K25002"},
-		{RollNo: "IT2K25003", Name: "Meera Iyer", CourseName: "MCA", Semester: 4, ContactNo: "9876543217", EmailID: "meera.iyer@iips.edu", EnrollmentNo: "EN-IT2K25003"},
+		{RollNo: "IT2K24011", Name: "Rahul Sharma", CourseName: models.CourseMTechCS, Semester: 6, ContactNo: "9876543210", EmailID: "rahul.sharma@iips.edu", EnrollmentNo: "EN-IT2K24011"},
+		{RollNo: "IT2K24012", Name: "Sneha Kumar", CourseName: models.CourseMTechCS, Semester: 6, ContactNo: "9876543211", EmailID: "sneha.kumar@iips.edu", EnrollmentNo: "EN-IT2K24012"},
+		{RollNo: "IT2K24013", Name: "Arjun Desai", CourseName: models.CourseMTechIT, Semester: 4, ContactNo: "9876543212", EmailID: "arjun.desai@iips.edu", EnrollmentNo: "EN-IT2K24013"},
+		{RollNo: "IT2K24014", Name: "Kavya Krishnan", CourseName: models.CourseMTechCS, Semester: 4, ContactNo: "9876543213", EmailID: "kavya.krishnan@iips.edu", EnrollmentNo: "EN-IT2K24014"},
+		{RollNo: "IT2K24015", Name: "Vikram Singh", CourseName: models.CourseMTechIT, Semester: 2, ContactNo: "9876543214", EmailID: "vikram.singh@iips.edu", EnrollmentNo: "EN-IT2K24015"},
+		{RollNo: "IT2K25001", Name: "Priya Nair", CourseName: models.CourseMCA5Yr, Semester: 2, ContactNo: "9876543215", EmailID: "priya.nair@iips.edu", EnrollmentNo: "EN-IT2K25001"},
+		{RollNo: "IT2K25002", Name: "Rohan Verma", CourseName: models.CourseMCA5Yr, Semester: 2, ContactNo: "9876543216", EmailID: "rohan.verma@iips.edu", EnrollmentNo: "EN-IT2K25002"},
+		{RollNo: "IT2K25003", Name: "Meera Iyer", CourseName: models.CourseMCA5Yr, Semester: 4, ContactNo: "9876543217", EmailID: "meera.iyer@iips.edu", EnrollmentNo: "EN-IT2K25003"},
 	}
 
 	seeded := make([]models.Student, 0, len(students))
@@ -222,6 +230,34 @@ func seedStudents(hashedPassword string) ([]models.Student, error) {
 	}
 
 	return seeded, nil
+}
+
+// legacyCourseNames maps older/free-text course names (from earlier seeds and the
+// previous registration form) onto the canonical program list.
+var legacyCourseNames = map[string]string{
+	"Computer Science":                      models.CourseMTechCS,
+	"M.Tech (Computer Science - CS)":        models.CourseMTechCS,
+	"Btech + Mtech (Computer Science)":      models.CourseMTechCS,
+	"Information Technology":                models.CourseMTechIT,
+	"M.Tech (Information Technology - IT)":  models.CourseMTechIT,
+	"Btech + Mtech (Information Tech)":      models.CourseMTechIT,
+	"MCA":                                   models.CourseMCA5Yr,
+	"MCA (Master of Computer Applications)": models.CourseMCA5Yr,
+	"BCA":                                   models.CourseMCA5Yr,
+	"BCA + MCA":                             models.CourseMCA5Yr,
+}
+
+// normalizeStudentCourses rewrites any legacy course name to its canonical
+// equivalent. It is idempotent: rows already on a canonical name match nothing.
+func normalizeStudentCourses() error {
+	for legacy, canonical := range legacyCourseNames {
+		if err := DB.Model(&models.Student{}).
+			Where("course_name = ?", legacy).
+			Update("course_name", canonical).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

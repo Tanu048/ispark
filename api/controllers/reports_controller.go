@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -38,12 +37,11 @@ var allowedReportTypes = map[string]bool{
 }
 
 // allowedReportFormats is the set of output formats a report may request. Only
-// CSV is rendered for now; PDF and Excel are accepted (the UI offers them) and
-// currently produce CSV content until dedicated exporters land in a later phase.
+// CSV is supported for now — the backend produces CSV files, so accepting PDF or
+// Excel would hand back a mislabelled file. Real PDF/Excel rendering is a future
+// enhancement; until then the API and UI expose CSV only.
 var allowedReportFormats = map[string]bool{
-	"CSV":   true,
-	"PDF":   true,
-	"Excel": true,
+	"CSV": true,
 }
 
 // allowedExportTypes is the set of direct data exports the Export Center offers.
@@ -196,18 +194,32 @@ func buildStudentAggregates(input models.GenerateReportInput) ([]studentAggregat
 		return nil, err
 	}
 
+	// The date range windows the underlying data so the filter is honoured
+	// consistently: credits and pending counts come from certificates whose
+	// activity date falls in the range, and activity counts from enrollments
+	// created within it. This matches how the certificate and activity reports
+	// apply the same filter. A parse error leaves the bound unset (nil).
+	from, _ := parseReportDate(input.DateFrom)
+	to, _ := parseReportDate(input.DateTo)
+
 	type certRow struct {
 		StudentRollNo string
 		Credits       int
 		Pending       int
 	}
-	var certRows []certRow
-	if err := config.DB.Model(&models.Certificate{}).
+	certQuery := config.DB.Model(&models.Certificate{}).
 		Select("student_roll_no, " +
 			"COALESCE(SUM(CASE WHEN status = 'Approved' THEN credits ELSE 0 END), 0) AS credits, " +
 			"COUNT(CASE WHEN status = 'Pending' THEN 1 END) AS pending").
-		Group("student_roll_no").
-		Scan(&certRows).Error; err != nil {
+		Group("student_roll_no")
+	if from != nil {
+		certQuery = certQuery.Where("activity_date >= ?", *from)
+	}
+	if to != nil {
+		certQuery = certQuery.Where("activity_date <= ?", *to)
+	}
+	var certRows []certRow
+	if err := certQuery.Scan(&certRows).Error; err != nil {
 		return nil, err
 	}
 
@@ -215,11 +227,17 @@ func buildStudentAggregates(input models.GenerateReportInput) ([]studentAggregat
 		StudentRollNo string
 		Count         int
 	}
-	var enrRows []enrRow
-	if err := config.DB.Model(&models.Enrollment{}).
+	enrQuery := config.DB.Model(&models.Enrollment{}).
 		Select("student_roll_no, COUNT(*) AS count").
-		Group("student_roll_no").
-		Scan(&enrRows).Error; err != nil {
+		Group("student_roll_no")
+	if from != nil {
+		enrQuery = enrQuery.Where("created_at >= ?", *from)
+	}
+	if to != nil {
+		enrQuery = enrQuery.Where("created_at <= ?", *to)
+	}
+	var enrRows []enrRow
+	if err := enrQuery.Scan(&enrRows).Error; err != nil {
 		return nil, err
 	}
 
@@ -596,6 +614,25 @@ func GetReportsSummary(c *fiber.Ctx) error {
 	})
 }
 
+// maxProgramSemester is the highest semester number a report can be filtered by.
+// The semester filter offers the full 1..N range rather than only the semesters
+// that currently have students, so any semester can be filtered even when empty.
+const maxProgramSemester = 10
+
+// GetReportFilters returns the course and semester options for the generate-report
+// form. Both come from canonical domains, not from distinct row values: courses
+// are the platform's fixed program list (models.CanonicalCourses) and semesters
+// are the full 1..maxProgramSemester range. This keeps the dropdowns stable and
+// consistent, so they never drift with legacy/registered course-name variants.
+func GetReportFilters(c *fiber.Ctx) error {
+	semesters := make([]int, 0, maxProgramSemester)
+	for s := 1; s <= maxProgramSemester; s++ {
+		semesters = append(semesters, s)
+	}
+
+	return c.JSON(fiber.Map{"courses": models.CanonicalCourses, "semesters": semesters})
+}
+
 // ---------------------------------------------------------------------------
 // Report generation & management
 // ---------------------------------------------------------------------------
@@ -620,7 +657,7 @@ func GenerateReport(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Unknown report type"})
 	}
 	if !allowedReportFormats[input.Format] {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Format must be one of CSV, PDF or Excel"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Format must be CSV"})
 	}
 
 	dateFrom, err := parseReportDate(input.DateFrom)
@@ -804,7 +841,7 @@ func CreateScheduledReport(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Unknown report type"})
 	}
 	if !allowedReportFormats[input.Format] {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Format must be one of CSV, PDF or Excel"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Format must be CSV"})
 	}
 
 	enabled := true
@@ -858,7 +895,7 @@ func UpdateScheduledReport(c *fiber.Ctx) error {
 	}
 	if format := strings.TrimSpace(input.Format); format != "" {
 		if !allowedReportFormats[format] {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Format must be one of CSV, PDF or Excel"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Format must be CSV"})
 		}
 		scheduled.Format = format
 	}
@@ -898,6 +935,8 @@ func DeleteScheduledReport(c *fiber.Ctx) error {
 func GetExportCounts(c *fiber.Ctx) error {
 	var students, activities, credits, certificates int64
 
+	// The credits export is one row per student (a per-student credit summary),
+	// so its count is the student total — not the number of approved certificates.
 	queries := []struct {
 		model any
 		where string
@@ -905,7 +944,7 @@ func GetExportCounts(c *fiber.Ctx) error {
 	}{
 		{model: &models.Student{}, into: &students},
 		{model: &models.Activity{}, into: &activities},
-		{model: &models.Certificate{}, where: "status = 'Approved'", into: &credits},
+		{model: &models.Student{}, into: &credits},
 		{model: &models.Certificate{}, into: &certificates},
 	}
 
@@ -1045,10 +1084,6 @@ func GetReportAuditLog(c *fiber.Ctx) error {
 // Institutional overview
 // ---------------------------------------------------------------------------
 
-// maxOverviewDepartments caps how many departments the overview bar chart shows,
-// so the fixed-width chart stays readable.
-const maxOverviewDepartments = 8
-
 // GetInstitutionalOverview returns the headline figures, per-department credit
 // averages and a six-month participation trend for the Reports Center's
 // Institutional Overview panel. Everything is computed from live platform data.
@@ -1100,8 +1135,9 @@ func GetInstitutionalOverview(c *fiber.Ctx) error {
 	})
 }
 
-// departmentScores returns the average earned credits per student for each
-// course, highest-population courses first, capped for chart readability.
+// departmentScores returns the average earned credits per student for every
+// canonical programme, in the canonical order. Programmes with no students are
+// included with a score of 0 so the chart always shows the full course list.
 func departmentScores() ([]fiber.Map, error) {
 	aggregates, err := buildStudentAggregates(models.GenerateReportInput{})
 	if err != nil {
@@ -1113,31 +1149,20 @@ func departmentScores() ([]fiber.Map, error) {
 		credits  int
 	}
 	depts := map[string]*dept{}
-	var names []string
 	for _, a := range aggregates {
 		d, ok := depts[a.CourseName]
 		if !ok {
 			d = &dept{}
 			depts[a.CourseName] = d
-			names = append(names, a.CourseName)
 		}
 		d.students++
 		d.credits += a.Credits
 	}
 
-	// Busiest courses first so the capped chart shows the most representative ones.
-	sort.SliceStable(names, func(i, j int) bool {
-		return depts[names[i]].students > depts[names[j]].students
-	})
-	if len(names) > maxOverviewDepartments {
-		names = names[:maxOverviewDepartments]
-	}
-
-	scores := make([]fiber.Map, 0, len(names))
-	for _, name := range names {
-		d := depts[name]
+	scores := make([]fiber.Map, 0, len(models.CanonicalCourses))
+	for _, name := range models.CanonicalCourses {
 		score := 0
-		if d.students > 0 {
+		if d, ok := depts[name]; ok && d.students > 0 {
 			score = int(math.Round(float64(d.credits) / float64(d.students)))
 		}
 		scores = append(scores, fiber.Map{"dept": name, "score": score})

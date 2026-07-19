@@ -570,6 +570,7 @@
 		date: string;
 		format: ReportFormat;
 		status: ReportStatus;
+		fileName: string;
 		// Original generation parameters, kept so a failed report can be retried.
 		type: string;
 		course: string;
@@ -591,16 +592,18 @@
 		'Leaderboard Rankings',
 		'Semester Summary'
 	];
-	const reportCourses = ['All Courses', 'Mtech CS', 'Mtech IT', 'MBA', 'MCA'];
-	const reportSemesters = ['All Semesters', 'Semester 1', 'Semester 2', 'Semester 3', 'Semester 4'];
-	const reportFormats: ReportFormat[] = ['PDF', 'Excel', 'CSV'];
+	// Course and semester options are loaded from the API (canonical student data)
+	// so they never drift from the seeded/registered course names. "All …" is
+	// prepended as the no-filter choice.
+	let reportCourses = $state<string[]>(['All Courses']);
+	let reportSemesters = $state<string[]>(['All Semesters']);
 
 	let reportType = $state('Student Performance');
 	let reportCourse = $state('All Courses');
 	let reportSemester = $state('All Semesters');
 	let reportFrom = $state('2025-08-01');
 	let reportTo = $state('2026-05-31');
-	let reportFormat = $state<ReportFormat>('PDF');
+	let reportFormat = $state<ReportFormat>('CSV');
 
 	// Reports Center overview figures, loaded from the API.
 	let reportSummary = $state({
@@ -772,6 +775,7 @@
 		date_to: string | null;
 		format: ReportFormat;
 		status: ReportStatus;
+		file_name: string;
 		generated_by: string;
 		created_at: string;
 	}): GeneratedReport {
@@ -782,6 +786,7 @@
 			date: formatReportDate(r.created_at),
 			format: r.format,
 			status: r.status,
+			fileName: r.file_name ?? '',
 			type: r.type,
 			course: r.course ?? '',
 			semester: r.semester ?? '',
@@ -799,7 +804,8 @@
 				countsRes,
 				auditRes,
 				templatesRes,
-				institutionalRes
+				institutionalRes,
+				filtersRes
 			] = await Promise.all([
 				fetch(`${reportsBase}/summary`, { headers: authHeaders() }),
 				fetch(`${reportsBase}`, { headers: authHeaders() }),
@@ -807,7 +813,8 @@
 				fetch(`${reportsBase}/export/counts`, { headers: authHeaders() }),
 				fetch(`${reportsBase}/audit`, { headers: authHeaders() }),
 				fetch(`${reportsBase}/templates`, { headers: authHeaders() }),
-				fetch(`${reportsBase}/institutional`, { headers: authHeaders() })
+				fetch(`${reportsBase}/institutional`, { headers: authHeaders() }),
+				fetch(`${reportsBase}/filters`, { headers: authHeaders() })
 			]);
 
 			if (
@@ -818,7 +825,8 @@
 					countsRes,
 					auditRes,
 					templatesRes,
-					institutionalRes
+					institutionalRes,
+					filtersRes
 				].some((res) => res.status === 401)
 			) {
 				localStorage.removeItem('superadmin_token');
@@ -899,6 +907,18 @@
 				activitiesTrend = trend?.activities ?? [];
 				certificatesTrend = trend?.certificates ?? [];
 			}
+
+			if (filtersRes.ok) {
+				const { courses, semesters } = await filtersRes.json();
+				reportCourses = ['All Courses', ...(courses ?? [])];
+				reportSemesters = [
+					'All Semesters',
+					...(semesters ?? []).map((s: number) => `Semester ${s}`)
+				];
+				// Keep the current selection valid if the loaded options dropped it.
+				if (!reportCourses.includes(reportCourse)) reportCourse = 'All Courses';
+				if (!reportSemesters.includes(reportSemester)) reportSemester = 'All Semesters';
+			}
 		} catch {
 			loadError = 'Could not load reports data. Please try again.';
 		}
@@ -941,7 +961,7 @@
 		reportSemester = 'All Semesters';
 		reportFrom = '2025-08-01';
 		reportTo = '2026-05-31';
-		reportFormat = 'PDF';
+		reportFormat = 'CSV';
 		triggerToast('Report filters reset.');
 	}
 
@@ -956,7 +976,9 @@
 				return;
 			}
 
-			triggerBlobDownload(await res.blob(), `${report.name}.csv`);
+			// Use the server-provided filename (correct extension), not a forced .csv.
+			const fallback = `${report.name}.csv`;
+			triggerBlobDownload(await res.blob(), report.fileName || fallback);
 			triggerToast(`Downloaded "${report.name}".`);
 			await loadReportsData();
 		} catch {
@@ -1051,19 +1073,6 @@
 		}
 	}
 
-	function reportTypeBadge(type: string): string {
-		switch (type) {
-			case 'PDF':
-				return 'bg-rose-50 text-rose-700 border-rose-100';
-			case 'Excel':
-				return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-			case 'CSV':
-				return 'bg-blue-50 text-blue-700 border-blue-100';
-			default:
-				return 'bg-purple-50 text-purple-700 border-purple-100';
-		}
-	}
-
 	function reportStatusClass(status: ReportStatus | string): string {
 		switch (status) {
 			case 'Ready':
@@ -1087,17 +1096,6 @@
 				return 'bg-amber-500';
 			default:
 				return 'bg-rose-500';
-		}
-	}
-
-	function reportFormatClass(format: ReportFormat): string {
-		switch (format) {
-			case 'PDF':
-				return 'bg-rose-50 text-rose-700 border-rose-100';
-			case 'Excel':
-				return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-			case 'CSV':
-				return 'bg-blue-50 text-blue-700 border-blue-100';
 		}
 	}
 
@@ -2492,7 +2490,7 @@
 							>
 							<h3 class="text-xs font-bold text-slate-800 tracking-wide mt-1.5">Downloads</h3>
 							<p class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mt-0.5">
-								+18 this month
+								This month
 							</p>
 						</div>
 						<div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
@@ -2517,11 +2515,15 @@
 					<div
 						class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex items-center justify-between hover:shadow-md transition-shadow"
 					>
-						<div>
-							<span class="text-2xl font-bold font-serif text-slate-900">Today</span>
+						<div class="min-w-0">
+							<span class="text-2xl font-bold font-serif text-slate-900"
+								>{recentReports.length ? recentReports[0].date : '—'}</span
+							>
 							<h3 class="text-xs font-bold text-slate-800 tracking-wide mt-1.5">Last Generated</h3>
-							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-								Jun 28, 2026
+							<p
+								class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 truncate"
+							>
+								{recentReports.length ? recentReports[0].name : 'No reports yet'}
 							</p>
 						</div>
 						<div class="p-2.5 rounded-lg bg-purple-50 text-purple-600 border border-purple-100">
@@ -2637,23 +2639,14 @@
 								</div>
 							</div>
 
-							<!-- Format -->
-							<div class="flex flex-col gap-2">
+							<!-- Format: reports are exported as CSV -->
+							<div class="flex flex-col gap-1.5">
 								<span class="text-[10px] font-extrabold text-slate-650 tracking-wider">FORMAT</span>
-								<div class="flex flex-wrap gap-2">
-									{#each reportFormats as fmt}
-										<button
-											type="button"
-											onclick={() => (reportFormat = fmt)}
-											class="px-4 py-2 rounded-lg text-xs font-bold border transition-all
-											{reportFormat === fmt
-												? 'bg-[#881B1B]/10 text-[#881B1B] border-[#881B1B]/30'
-												: 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}"
-										>
-											{fmt === 'Excel' ? 'Excel (.xlsx)' : fmt}
-										</button>
-									{/each}
-								</div>
+								<span
+									class="inline-flex w-fit items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100"
+								>
+									CSV
+								</span>
 							</div>
 
 							<!-- Actions -->
@@ -2778,7 +2771,6 @@
 									<th class="py-3.5 px-5">Report Name</th>
 									<th class="py-3.5 px-5">Generated By</th>
 									<th class="py-3.5 px-5">Date</th>
-									<th class="py-3.5 px-5">Format</th>
 									<th class="py-3.5 px-5">Status</th>
 									<th class="py-3.5 px-5 text-center">Actions</th>
 								</tr>
@@ -2791,15 +2783,6 @@
 										<td class="py-4 px-5 text-slate-500 font-semibold whitespace-nowrap"
 											>{report.date}</td
 										>
-										<td class="py-4 px-5">
-											<span
-												class="inline-flex px-2 py-0.5 text-[10px] font-bold uppercase rounded-md border {reportFormatClass(
-													report.format
-												)}"
-											>
-												{report.format}
-											</span>
-										</td>
 										<td class="py-4 px-5">
 											<span
 												class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border {reportStatusClass(
@@ -3149,7 +3132,6 @@
 										class="border-b border-slate-150 bg-slate-50/50 text-[10px] font-extrabold text-slate-405 uppercase tracking-wider"
 									>
 										<th class="py-3 px-5">Action</th>
-										<th class="py-3 px-4">Type</th>
 										<th class="py-3 px-4">User</th>
 										<th class="py-3 px-5">Timestamp</th>
 									</tr>
@@ -3163,15 +3145,6 @@
 													></span>
 													<span class="font-bold text-slate-800">{entry.action}</span>
 												</div>
-											</td>
-											<td class="py-3.5 px-4">
-												<span
-													class="inline-flex px-2 py-0.5 text-[10px] font-bold uppercase rounded-md border {reportTypeBadge(
-														entry.type
-													)}"
-												>
-													{entry.type}
-												</span>
 											</td>
 											<td class="py-3.5 px-4 text-slate-600 font-semibold whitespace-nowrap"
 												>{entry.user}</td

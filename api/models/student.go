@@ -6,6 +6,27 @@ import (
 	"gorm.io/gorm"
 )
 
+// Canonical course names. These are the programmes IIPS offers and the single
+// source of truth for course values — used for seeding, the report course filter,
+// registration and anywhere a canonical course list is needed, so course names
+// never drift between features.
+const (
+	CourseMBAMS5Yr = "MBA(MS) 5yrs Integrated"
+	CourseMCA5Yr   = "MCA 5yrs Integrated"
+	CourseMTechCS  = "MTech(CS) 5yrs Integrated"
+	CourseMTechIT  = "MTech(IT) 5yrs Integrated"
+	CourseBComHons = "B.Com (Hons) UG"
+	CourseMBAMS2Yr = "MBA(MS) 2yrs PG"
+	CourseMBAAPR   = "MBA(APR) 2yrs PG"
+	CourseMBAT     = "MBA(T) 2yrs PG"
+)
+
+// CanonicalCourses is the ordered list of programmes offered by IIPS.
+var CanonicalCourses = []string{
+	CourseMBAMS5Yr, CourseMCA5Yr, CourseMTechCS, CourseMTechIT,
+	CourseBComHons, CourseMBAMS2Yr, CourseMBAAPR, CourseMBAT,
+}
+
 type Student struct {
 	RollNo       string         `gorm:"primaryKey;type:varchar(50)" json:"roll_no"`
 	Name         string         `gorm:"type:varchar(100);not null" json:"name"`
