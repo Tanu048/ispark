@@ -202,6 +202,11 @@ func buildStudentAggregates(input models.GenerateReportInput) ([]studentAggregat
 	from, _ := parseReportDate(input.DateFrom)
 	to, _ := parseReportDate(input.DateTo)
 
+	// When a date range is selected it also determines which students appear:
+	// only those with reportable activity in the window are included. Without a
+	// range, every student (matching the course/semester filters) is reported.
+	dateRangeSet := from != nil || to != nil
+
 	type certRow struct {
 		StudentRollNo string
 		Credits       int
@@ -253,13 +258,23 @@ func buildStudentAggregates(input models.GenerateReportInput) ([]studentAggregat
 	aggregates := make([]studentAggregate, 0, len(students))
 	for _, student := range students {
 		cert := credits[student.RollNo]
+		activityCount := activities[student.RollNo]
+
+		// A date-ranged report only lists students who actually have reportable
+		// activity in that window — earned credits, enrollments, or pending
+		// certificates. This keeps a future/empty range from returning every
+		// student as a row of zeros.
+		if dateRangeSet && cert.Credits == 0 && activityCount == 0 && cert.Pending == 0 {
+			continue
+		}
+
 		aggregates = append(aggregates, studentAggregate{
 			RollNo:        student.RollNo,
 			Name:          student.Name,
 			CourseName:    student.CourseName,
 			Semester:      student.Semester,
 			Credits:       cert.Credits,
-			ActivityCount: activities[student.RollNo],
+			ActivityCount: activityCount,
 			Pending:       cert.Pending,
 		})
 	}

@@ -208,21 +208,45 @@ func TestReportFiltersAreCanonical(t *testing.T) {
 	}
 }
 
-// TestStudentReportDateFilterWindowsCredits confirms a future date range zeroes
-// out the windowed credit figures, so the date filter is applied consistently
-// (rather than being silently ignored for student-based reports).
-func TestStudentReportDateFilterWindowsCredits(t *testing.T) {
+// TestStudentReportDateRangeSelectsStudents confirms the selected date range
+// determines which students appear: a future window (no activity) yields only
+// the header, while a window covering the seeded data includes the students.
+func TestStudentReportDateRangeSelectsStudents(t *testing.T) {
 	app := setupReportsApp(t)
 
-	resp, body := doReq(t, app, http.MethodPost, "/api/admin/platform/reports/generate",
-		map[string]string{
-			"type":      "Student Performance",
-			"format":    "CSV",
-			"date_from": "2099-01-01",
-			"date_to":   "2099-12-31",
-		})
+	// Future window: no student has activity in it, so no data rows are produced.
+	future := generateStudentReportCSV(t, app, map[string]string{
+		"type":      "Student Performance",
+		"format":    "CSV",
+		"date_from": "2099-01-01",
+		"date_to":   "2099-12-31",
+	})
+	if got := dataRowCount(future); got != 0 {
+		t.Errorf("future range should return no student rows, got %d:\n%s", got, future)
+	}
+
+	// Window covering today: the seeded students (whose activity is dated now)
+	// reappear, so the range genuinely selects reportable students.
+	now := time.Now()
+	current := generateStudentReportCSV(t, app, map[string]string{
+		"type":      "Student Performance",
+		"format":    "CSV",
+		"date_from": now.AddDate(0, 0, -1).Format("2006-01-02"),
+		"date_to":   now.AddDate(0, 0, 1).Format("2006-01-02"),
+	})
+	if got := dataRowCount(current); got != 2 {
+		t.Errorf("range covering the seeded data should return both students, got %d:\n%s", got, current)
+	}
+}
+
+// generateStudentReportCSV generates a report from the given payload and returns
+// its downloaded CSV body.
+func generateStudentReportCSV(t *testing.T, app *fiber.App, payload map[string]string) string {
+	t.Helper()
+
+	resp, body := doReq(t, app, http.MethodPost, "/api/admin/platform/reports/generate", payload)
 	if resp.StatusCode != http.StatusCreated {
-		t.Fatalf("expected 201, got %d (%s)", resp.StatusCode, body)
+		t.Fatalf("generate: expected 201, got %d (%s)", resp.StatusCode, body)
 	}
 	var out struct {
 		Report struct {
@@ -235,20 +259,7 @@ func TestStudentReportDateFilterWindowsCredits(t *testing.T) {
 
 	_, csvBody := doReq(t, app, http.MethodGet,
 		"/api/admin/platform/reports/"+itoa(out.Report.ID)+"/download", nil)
-	rows := parseCSV(string(csvBody))
-	if len(rows) < 2 {
-		t.Fatalf("expected header + student rows, got %d rows", len(rows))
-	}
-
-	creditsCol := columnIndex(rows[0], "Credits Earned")
-	if creditsCol < 0 {
-		t.Fatalf("no Credits Earned column in %v", rows[0])
-	}
-	for _, row := range rows[1:] {
-		if row[creditsCol] != "0" {
-			t.Errorf("future range should window credits to 0, got %q for %v", row[creditsCol], row)
-		}
-	}
+	return string(csvBody)
 }
 
 // TestDownloadReportReturnsCSV confirms a generated report downloads as real CSV
@@ -302,15 +313,6 @@ func dataRowCount(s string) int {
 		return 0
 	}
 	return len(rows) - 1 // exclude header
-}
-
-func columnIndex(header []string, name string) int {
-	for i, h := range header {
-		if h == name {
-			return i
-		}
-	}
-	return -1
 }
 
 func firstLine(s string) string {
