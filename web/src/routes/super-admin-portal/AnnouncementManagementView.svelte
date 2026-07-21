@@ -2,20 +2,24 @@
 	import { fade, slide } from 'svelte/transition';
 
 	// ── Types ────────────────────────────────────────────────────────────────
-	type AnnouncementStatus = 'active' | 'draft' | 'expired';
+	type AnnouncementStatus = 'active' | 'draft' | 'scheduled' | 'expired';
 	type AudienceType = 'Students' | 'Mentors' | 'All Users';
+	type Category = 'General' | 'Academic' | 'Activities' | 'Events';
+	type Priority = 'Low' | 'Medium' | 'High';
 
 	interface Announcement {
 		id: string;
 		title: string;
 		description: string;
+		category: Category;
 		audience: AudienceType;
+		priority: Priority;
 		publishDate: string;
 		expiryDate: string;
 		status: AnnouncementStatus;
 	}
 
-	type FilterKey = 'All' | 'Active' | 'Draft' | 'Expired';
+	type FilterKey = 'All' | 'Active' | 'Draft' | 'Scheduled' | 'Expired';
 
 	// ── Announcement Registry (mock data — replace with API-backed data) ──────
 	let announcements = $state<Announcement[]>([
@@ -24,7 +28,9 @@
 			title: 'Mid-Semester Activity Submission Deadline',
 			description:
 				'All students must submit their extracurricular activity proof documents before the deadline to receive credit for the current semester.',
+			category: 'Academic',
 			audience: 'Students',
+			priority: 'High',
 			publishDate: '2025-06-10',
 			expiryDate: '2025-07-15',
 			status: 'active'
@@ -34,7 +40,9 @@
 			title: 'Mentor Orientation Schedule',
 			description:
 				'New mentor orientation sessions have been scheduled. Please review the timings and confirm your attendance.',
+			category: 'Events',
 			audience: 'Mentors',
+			priority: 'Medium',
 			publishDate: '2025-06-14',
 			expiryDate: '2025-06-30',
 			status: 'active'
@@ -44,7 +52,9 @@
 			title: 'Updated Credit Policy Guidelines',
 			description:
 				'The credit distribution policy has been revised for the current academic year. All users should review the updated guidelines.',
+			category: 'General',
 			audience: 'All Users',
+			priority: 'Low',
 			publishDate: '2025-06-20',
 			expiryDate: '2025-08-01',
 			status: 'draft'
@@ -54,7 +64,9 @@
 			title: 'Activity Registration Reminder',
 			description:
 				'Students who have not yet registered for their extracurricular activities should do so before the registration window closes.',
+			category: 'Activities',
 			audience: 'Students',
+			priority: 'Medium',
 			publishDate: '2025-05-01',
 			expiryDate: '2025-05-31',
 			status: 'expired'
@@ -68,7 +80,12 @@
 		announcements.filter((a) => {
 			const matchesFilter =
 				announcementFilter === 'All' || a.status === announcementFilter.toLowerCase();
-			const matchesSearch = a.title.toLowerCase().includes(announcementSearch.toLowerCase());
+			const query = announcementSearch.toLowerCase().trim();
+			const matchesSearch =
+				query === '' ||
+				a.title.toLowerCase().includes(query) ||
+				a.category.toLowerCase().includes(query) ||
+				a.audience.toLowerCase().includes(query);
 			return matchesFilter && matchesSearch;
 		})
 	);
@@ -89,6 +106,18 @@
 		'All Users': 'bg-slate-100 text-slate-700'
 	};
 
+	const priorityStyles: Record<Priority, string> = {
+		Low: 'bg-slate-50 text-slate-600 border-slate-200',
+		Medium: 'bg-amber-50 text-amber-700 border-amber-100',
+		High: 'bg-red-50 text-red-600 border-red-100'
+	};
+
+	const priorityDotStyles: Record<Priority, string> = {
+		Low: 'bg-slate-400',
+		Medium: 'bg-amber-500',
+		High: 'bg-red-500'
+	};
+
 	function formatDisplayDate(iso: string): string {
 		if (!iso) return '';
 		const d = new Date(`${iso}T00:00:00`);
@@ -100,17 +129,20 @@
 		switch (status) {
 			case 'active':
 				return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+			case 'scheduled':
+				return 'bg-amber-50 text-amber-700 border-amber-100';
 			case 'expired':
 				return 'bg-red-50 text-red-600 border-red-100';
 			default:
 				return 'bg-slate-100 text-slate-500 border-slate-200';
 		}
 	}
-
 	function announcementStatusDot(status: AnnouncementStatus): string {
 		switch (status) {
 			case 'active':
 				return 'bg-emerald-500';
+			case 'scheduled':
+				return 'bg-amber-500';
 			case 'expired':
 				return 'bg-red-500';
 			default:
@@ -146,6 +178,8 @@
 	let formTitle = $state('');
 	let formDescription = $state('');
 	let formAudience = $state<AudienceType>('Students');
+	let formCategory = $state<Category>('General');
+	let formPriority = $state<Priority>('Medium');
 	let formPublishDate = $state('');
 	let formExpiryDate = $state('');
 	let formStatus = $state<AnnouncementStatus>('draft');
@@ -154,7 +188,9 @@
 	function resetForm() {
 		formTitle = '';
 		formDescription = '';
+		formCategory = 'General';
 		formAudience = 'Students';
+		formPriority = 'Medium';
 		formPublishDate = '';
 		formExpiryDate = '';
 		formStatus = 'draft';
@@ -173,7 +209,9 @@
 		editingId = item.id;
 		formTitle = item.title;
 		formDescription = item.description;
+		formCategory = item.category;
 		formAudience = item.audience;
+		formPriority = item.priority;
 		formPublishDate = item.publishDate;
 		formExpiryDate = item.expiryDate;
 		formStatus = item.status;
@@ -199,7 +237,9 @@
 				id: `ann-${Date.now()}`,
 				title: formTitle.trim(),
 				description: formDescription.trim(),
+				category: formCategory,
 				audience: formAudience,
+				priority: formPriority,
 				publishDate: formPublishDate,
 				expiryDate: formExpiryDate,
 				status: formStatus
@@ -213,7 +253,9 @@
 							...a,
 							title: formTitle.trim(),
 							description: formDescription.trim(),
+							category: formCategory,
 							audience: formAudience,
+							priority: formPriority,
 							publishDate: formPublishDate,
 							expiryDate: formExpiryDate,
 							status: formStatus
@@ -241,6 +283,17 @@
 		if (confirm(`Are you sure you want to delete "${item.title}"?`)) {
 			announcements = announcements.filter((a) => a.id !== item.id);
 			triggerToast(`Announcement "${item.title}" removed successfully.`);
+		}
+	}
+
+	// ── Publish (draft → active) ─────────────────────────────────────────────
+	function handlePublishAnnouncement(item: Announcement) {
+		announcements = announcements.map((a) =>
+			a.id === item.id ? { ...a, status: 'active' } : a
+		);
+		triggerToast(`Announcement "${item.title}" is now live.`);
+		if (viewAnnouncement && viewAnnouncement.id === item.id) {
+			viewAnnouncement = { ...viewAnnouncement, status: 'active' };
 		}
 	}
 </script>
@@ -420,7 +473,7 @@
 			class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white select-none"
 		>
 			<div class="flex flex-wrap gap-1.5">
-				{#each ['All', 'Active', 'Draft', 'Expired'] as filterOption}
+				{#each ['All', 'Active', 'Draft', 'Scheduled', 'Expired'] as filterOption}
 					<button
 						type="button"
 						onclick={() => (announcementFilter = filterOption as FilterKey)}
@@ -438,7 +491,7 @@
 				<input
 					type="text"
 					bind:value={announcementSearch}
-					placeholder="Search announcement title"
+					placeholder="Search title, category, audience"
 					class="pl-4 pr-9 py-2 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-slate-350 focus:bg-white w-full transition-all"
 				/>
 				<span class="absolute right-3 top-2.5 text-slate-400">
@@ -468,6 +521,8 @@
 						class="border-b border-slate-150 bg-slate-50/50 text-[10px] font-extrabold text-slate-405 uppercase tracking-wider"
 					>
 						<th class="py-3.5 px-5">Announcement Title</th>
+						<th class="py-3.5 px-5">Category</th>
+						<th class="py-3.5 px-5">Priority</th>
 						<th class="py-3.5 px-5">Target Audience</th>
 						<th class="py-3.5 px-5">Publish Date</th>
 						<th class="py-3.5 px-5">Expiry Date</th>
@@ -478,7 +533,7 @@
 				<tbody class="divide-y divide-slate-100 text-xs font-sans">
 					{#if filteredAnnouncements.length === 0}
 						<tr>
-							<td colspan="6" class="py-8 text-center text-slate-400 font-semibold select-none">
+							<td colspan="8" class="py-8 text-center text-slate-400 font-semibold select-none">
 								No announcements found matching search filters.
 							</td>
 						</tr>
@@ -487,6 +542,20 @@
 							<tr class="hover:bg-slate-50/30 transition-colors">
 								<td class="py-4 px-5 font-bold text-slate-800 align-top max-w-sm">
 									{item.title}
+								</td>
+								<td class="py-4 px-5 text-slate-600 font-semibold align-top">
+									{item.category}
+								</td>
+								<td class="py-4 px-5 align-top">
+									<span
+										class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border {priorityStyles[
+											item.priority
+										]}"
+									>
+										<span class="w-1.5 h-1.5 rounded-full {priorityDotStyles[item.priority]}"
+										></span>
+										{item.priority}
+									</span>
 								</td>
 								<td class="py-4 px-5 align-top">
 									<span
@@ -516,6 +585,30 @@
 								</td>
 								<td class="py-4 px-5 align-top">
 									<div class="flex items-center gap-3">
+										{#if item.status === 'draft'}
+											<button
+												type="button"
+												onclick={() => handlePublishAnnouncement(item)}
+												aria-label="Publish announcement"
+												title="Publish"
+												class="text-emerald-500 hover:text-emerald-700 transition-colors p-0.5"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="2"
+													stroke="currentColor"
+													class="w-4 h-4"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M4.5 12.75l6 6 9-13.5"
+													/>
+												</svg>
+											</button>
+										{/if}
 										<button
 											type="button"
 											onclick={() => openViewAnnouncement(item)}
@@ -704,19 +797,60 @@
 					></textarea>
 				</div>
 
+				<div class="grid grid-cols-2 gap-4">
+					<div class="flex flex-col gap-1.5">
+						<label
+							for="ann-category"
+							class="text-[10px] font-extrabold text-slate-650 tracking-wider"
+						>
+							CATEGORY *
+						</label>
+
+						<select
+							id="ann-category"
+							bind:value={formCategory}
+							class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white focus:outline-none focus:border-slate-355"
+						>
+							<option value="General">General</option>
+							<option value="Academic">Academic</option>
+							<option value="Activities">Activities</option>
+							<option value="Events">Events</option>
+						</select>
+					</div>
+					<div class="flex flex-col gap-1.5">
+						<label
+							for="ann-audience"
+							class="text-[10px] font-extrabold text-slate-650 tracking-wider"
+							>TARGET AUDIENCE *</label
+						>
+						<select
+							id="ann-audience"
+							bind:value={formAudience}
+							class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white focus:outline-none focus:border-slate-355"
+						>
+							<option value="Students">Students</option>
+							<option value="Mentors">Mentors</option>
+							<option value="All Users">All Users</option>
+						</select>
+					</div>
+				</div>
+
 				<div class="flex flex-col gap-1.5">
-					<label for="ann-audience" class="text-[10px] font-extrabold text-slate-650 tracking-wider"
-						>TARGET AUDIENCE *</label
-					>
-					<select
-						id="ann-audience"
-						bind:value={formAudience}
-						class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white focus:outline-none focus:border-slate-355"
-					>
-						<option value="Students">Students</option>
-						<option value="Mentors">Mentors</option>
-						<option value="All Users">All Users</option>
-					</select>
+					<span class="text-[10px] font-extrabold text-slate-650 tracking-wider">PRIORITY *</span>
+					<div class="grid grid-cols-3 gap-2">
+						{#each ['Low', 'Medium', 'High'] as const as p}
+							<button
+								type="button"
+								onclick={() => (formPriority = p)}
+								class="px-3 py-2 rounded-lg text-xs font-bold border transition-all
+								{formPriority === p
+									? 'bg-[#881B1B]/10 text-[#881B1B] border-[#881B1B]/30'
+									: 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}"
+							>
+								{p}
+							</button>
+						{/each}
+					</div>
 				</div>
 
 				<div class="grid grid-cols-2 gap-4">
@@ -750,7 +884,7 @@
 				<div class="flex flex-col gap-1.5">
 					<span class="text-[10px] font-extrabold text-slate-650 tracking-wider">STATUS</span>
 					<div class="grid grid-cols-3 gap-2">
-						{#each ['draft', 'active', 'expired'] as const as s}
+						{#each ['draft', 'scheduled', 'active', 'expired'] as const as s}
 							<button
 								type="button"
 								onclick={() => (formStatus = s)}
@@ -847,7 +981,7 @@
 					</div>
 				{/if}
 
-				<div class="grid grid-cols-2 gap-4 pt-2">
+				<div class="grid grid-cols-3 gap-4 pt-2">
 					<div class="flex flex-col gap-1">
 						<span class="text-[10px] font-extrabold text-slate-650 tracking-wider"
 							>TARGET AUDIENCE</span
@@ -858,6 +992,18 @@
 							]}"
 						>
 							{viewAnnouncement.audience}
+						</span>
+					</div>
+					<div class="flex flex-col gap-1">
+						<span class="text-[10px] font-extrabold text-slate-650 tracking-wider">PRIORITY</span>
+						<span
+							class="inline-flex items-center gap-1.5 px-2 py-0.5 w-fit text-[10px] font-bold uppercase rounded-full border {priorityStyles[
+								viewAnnouncement.priority
+							]}"
+						>
+							<span class="w-1.5 h-1.5 rounded-full {priorityDotStyles[viewAnnouncement.priority]}"
+							></span>
+							{viewAnnouncement.priority}
 						</span>
 					</div>
 					<div class="flex flex-col gap-1">
@@ -904,6 +1050,15 @@
 				>
 					Close
 				</button>
+				{#if viewAnnouncement.status === 'draft'}
+					<button
+						type="button"
+						onclick={() => viewAnnouncement && handlePublishAnnouncement(viewAnnouncement)}
+						class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none"
+					>
+						Publish
+					</button>
+				{/if}
 				<button
 					type="button"
 					onclick={() => {
