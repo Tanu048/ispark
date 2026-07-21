@@ -288,9 +288,7 @@
 
 	// ── Publish (draft → active) ─────────────────────────────────────────────
 	function handlePublishAnnouncement(item: Announcement) {
-		announcements = announcements.map((a) =>
-			a.id === item.id ? { ...a, status: 'active' } : a
-		);
+		announcements = announcements.map((a) => (a.id === item.id ? { ...a, status: 'active' } : a));
 		triggerToast(`Announcement "${item.title}" is now live.`);
 		if (viewAnnouncement && viewAnnouncement.id === item.id) {
 			viewAnnouncement = { ...viewAnnouncement, status: 'active' };
