@@ -88,8 +88,9 @@
 	});
 
 	// ── Filters / Search / Pagination ───────────────────────────────────────────
-	type FilterTab = 'All' | 'Personality Development' | 'Skill Building' | 'Active' | 'Inactive';
+	type FilterTab = string;
 	let activeFilter = $state<FilterTab>('All');
+	let filterTabs = $derived(['All', ...availableTracks.map((t) => t.name), 'Active', 'Inactive']);
 	let searchQuery = $state('');
 	let currentPage = $state(1);
 	const pageSize = 10;
@@ -579,7 +580,7 @@
 				class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white select-none"
 			>
 				<div class="flex flex-wrap gap-1.5">
-					{#each ['All', 'Personality Development', 'Skill Building', 'Active', 'Inactive'] as const as tab}
+					{#each filterTabs as tab}
 						<button
 							type="button"
 							onclick={() => setFilter(tab)}
@@ -659,9 +660,7 @@
 												activity.track
 											)}"
 										>
-											{activity.track === 'Personality Development'
-												? 'Personality Dev.'
-												: 'Skill Building'}
+											{activity.track || 'Unassigned'}
 										</span>
 									</td>
 									<td class="py-4 px-5 text-slate-500 font-semibold">{activity.type}</td>

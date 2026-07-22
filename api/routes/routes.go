@@ -74,12 +74,6 @@ func SetupRoutes(app *fiber.App) {
 	platform.Put("/activities/:id", controllers.UpdatePlatformActivity)
 	platform.Delete("/activities/:id", controllers.DeletePlatformActivity)
 
-	// Tracks
-	platform.Get("/tracks", controllers.GetPlatformTracks)
-	platform.Post("/tracks", controllers.CreatePlatformTrack)
-	platform.Put("/tracks/:id", controllers.UpdatePlatformTrack)
-	platform.Delete("/tracks/:id", controllers.DeletePlatformTrack)
-
 	// System settings
 	platform.Get("/settings", controllers.GetPlatformSettings)
 	platform.Put("/settings", controllers.UpdatePlatformSettings)
