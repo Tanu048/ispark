@@ -40,13 +40,9 @@ func SeedDevData() {
 		return
 	}
 
-	// Map any legacy/registered course names onto the canonical list so every
-	// course-based view (reports, institutional overview) shows only the offered
-	// programs.
-	if err := normalizeStudentCourses(); err != nil {
-		log.Printf("Normalising student courses failed: %v", err)
-		return
-	}
+	// Legacy course-name normalisation runs unconditionally at boot as a data
+	// migration (see config.RunMigrations), so it is intentionally not repeated
+	// here. Seeded students already use the canonical models.Course* constants.
 
 	// Tracks are seeded before activities so each activity can be linked to its
 	// track via Activity.TrackID (the normalized relationship the Track
@@ -342,34 +338,6 @@ func seedStudents(hashedPassword string) ([]models.Student, error) {
 	}
 
 	return seeded, nil
-}
-
-// legacyCourseNames maps older/free-text course names (from earlier seeds and the
-// previous registration form) onto the canonical program list.
-var legacyCourseNames = map[string]string{
-	"Computer Science":                      models.CourseMTechCS,
-	"M.Tech (Computer Science - CS)":        models.CourseMTechCS,
-	"Btech + Mtech (Computer Science)":      models.CourseMTechCS,
-	"Information Technology":                models.CourseMTechIT,
-	"M.Tech (Information Technology - IT)":  models.CourseMTechIT,
-	"Btech + Mtech (Information Tech)":      models.CourseMTechIT,
-	"MCA":                                   models.CourseMCA5Yr,
-	"MCA (Master of Computer Applications)": models.CourseMCA5Yr,
-	"BCA":                                   models.CourseMCA5Yr,
-	"BCA + MCA":                             models.CourseMCA5Yr,
-}
-
-// normalizeStudentCourses rewrites any legacy course name to its canonical
-// equivalent. It is idempotent: rows already on a canonical name match nothing.
-func normalizeStudentCourses() error {
-	for legacy, canonical := range legacyCourseNames {
-		if err := DB.Model(&models.Student{}).
-			Where("course_name = ?", legacy).
-			Update("course_name", canonical).Error; err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // ---------------------------------------------------------------------------

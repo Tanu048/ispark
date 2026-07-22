@@ -158,6 +158,15 @@ func parseReportDate(value string) (*time.Time, error) {
 	return &t, nil
 }
 
+// nextDay returns midnight of the day after t. It is the exclusive upper bound
+// for an inclusive "to" date: a timestamp comparison of `< nextDay(to)` includes
+// every record on the selected day, whereas `<= to` (which is midnight of that
+// day) would drop everything after 00:00:00 and, for a single-day range, return
+// nothing at all.
+func nextDay(t time.Time) time.Time {
+	return t.AddDate(0, 0, 1)
+}
+
 // ---------------------------------------------------------------------------
 // Report data aggregation
 // ---------------------------------------------------------------------------
@@ -221,7 +230,7 @@ func buildStudentAggregates(input models.GenerateReportInput) ([]studentAggregat
 		certQuery = certQuery.Where("activity_date >= ?", *from)
 	}
 	if to != nil {
-		certQuery = certQuery.Where("activity_date <= ?", *to)
+		certQuery = certQuery.Where("activity_date < ?", nextDay(*to))
 	}
 	var certRows []certRow
 	if err := certQuery.Scan(&certRows).Error; err != nil {
@@ -239,7 +248,7 @@ func buildStudentAggregates(input models.GenerateReportInput) ([]studentAggregat
 		enrQuery = enrQuery.Where("created_at >= ?", *from)
 	}
 	if to != nil {
-		enrQuery = enrQuery.Where("created_at <= ?", *to)
+		enrQuery = enrQuery.Where("created_at < ?", nextDay(*to))
 	}
 	var enrRows []enrRow
 	if err := enrQuery.Scan(&enrRows).Error; err != nil {
@@ -454,15 +463,25 @@ func certificateReportData(input models.GenerateReportInput) ([][]string, error)
 			"certificates.status, certificates.credits, certificates.activity_date").
 		Order("certificates.created_at desc")
 
-	if course := filterCourse(input.Course); course != "" {
-		query = query.Joins("JOIN students ON students.roll_no = certificates.student_roll_no").
-			Where("students.course_name = ?", course)
+	// Course and semester both live on the owning student, so a single join
+	// backs either filter. Joining only when a filter is set keeps the plain
+	// (unfiltered) query cheap.
+	course := filterCourse(input.Course)
+	sem, hasSem := filterSemester(input.Semester)
+	if course != "" || hasSem {
+		query = query.Joins("JOIN students ON students.roll_no = certificates.student_roll_no")
+		if course != "" {
+			query = query.Where("students.course_name = ?", course)
+		}
+		if hasSem {
+			query = query.Where("students.semester = ?", sem)
+		}
 	}
 	if from, err := parseReportDate(input.DateFrom); err == nil && from != nil {
 		query = query.Where("certificates.activity_date >= ?", *from)
 	}
 	if to, err := parseReportDate(input.DateTo); err == nil && to != nil {
-		query = query.Where("certificates.activity_date <= ?", *to)
+		query = query.Where("certificates.activity_date < ?", nextDay(*to))
 	}
 
 	type row struct {
@@ -487,12 +506,31 @@ func certificateReportData(input models.GenerateReportInput) ([][]string, error)
 }
 
 // activityReportData lists activities with their enrollment and completion counts.
+// The course/semester filters scope the counts to enrolled students in that
+// course/semester: the student attributes are matched in the join's ON clause
+// (not a WHERE) so an activity with no matching enrolments still appears with a
+// zero count rather than dropping out of the report entirely.
 func activityReportData(input models.GenerateReportInput) ([][]string, error) {
+	// The counts are over students.roll_no rather than enrollments.id so they
+	// only include enrolments whose student survived the course/semester filter
+	// in the students join.
 	query := config.DB.Model(&models.Activity{}).
 		Select("activities.name, activities.category, activities.credits, " +
-			"COUNT(enrollments.id) AS enrolled, " +
-			"COUNT(CASE WHEN enrollments.status = 'Completed' THEN 1 END) AS completed").
-		Joins("LEFT JOIN enrollments ON enrollments.activity_id = activities.id AND enrollments.deleted_at IS NULL").
+			"COUNT(students.roll_no) AS enrolled, " +
+			"COUNT(CASE WHEN enrollments.status = 'Completed' AND students.roll_no IS NOT NULL THEN 1 END) AS completed").
+		Joins("LEFT JOIN enrollments ON enrollments.activity_id = activities.id AND enrollments.deleted_at IS NULL")
+
+	studentJoin := "LEFT JOIN students ON students.roll_no = enrollments.student_roll_no AND students.deleted_at IS NULL"
+	var studentArgs []interface{}
+	if course := filterCourse(input.Course); course != "" {
+		studentJoin += " AND students.course_name = ?"
+		studentArgs = append(studentArgs, course)
+	}
+	if sem, ok := filterSemester(input.Semester); ok {
+		studentJoin += " AND students.semester = ?"
+		studentArgs = append(studentArgs, sem)
+	}
+	query = query.Joins(studentJoin, studentArgs...).
 		Group("activities.id, activities.name, activities.category, activities.credits").
 		Order("enrolled desc")
 
@@ -500,7 +538,7 @@ func activityReportData(input models.GenerateReportInput) ([][]string, error) {
 		query = query.Where("activities.activity_date >= ?", *from)
 	}
 	if to, err := parseReportDate(input.DateTo); err == nil && to != nil {
-		query = query.Where("activities.activity_date <= ?", *to)
+		query = query.Where("activities.activity_date < ?", nextDay(*to))
 	}
 
 	type row struct {
@@ -535,14 +573,21 @@ func mentorReportData() ([][]string, error) {
 	rows := [][]string{{"Admin ID", "Name", "Role", "Assigned Batch", "Students"}}
 	for _, admin := range admins {
 		batch := admin.AssignedBatch
-		var students int64
+
+		// AssignedBatch is a roll-number prefix (e.g. "IT2K24"), not a course
+		// name, so students are scoped by `roll_no LIKE prefix%` — the same rule
+		// the admin dashboard uses. An empty batch means the account is not scoped
+		// to a batch (super admin), so it counts every student.
+		studentQuery := config.DB.Model(&models.Student{})
 		if batch != "" {
-			if err := config.DB.Model(&models.Student{}).
-				Where("course_name = ?", batch).Count(&students).Error; err != nil {
-				return nil, err
-			}
+			studentQuery = studentQuery.Where("roll_no LIKE ?", batch+"%")
 		} else {
 			batch = "All Batches"
+		}
+
+		var students int64
+		if err := studentQuery.Count(&students).Error; err != nil {
+			return nil, err
 		}
 		rows = append(rows, []string{admin.AdminID, admin.Name, admin.Role, batch, strconv.FormatInt(students, 10)})
 	}

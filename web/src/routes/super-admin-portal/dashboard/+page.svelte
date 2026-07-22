@@ -606,6 +606,22 @@
 	let reportTo = $state('2026-05-31');
 	let reportFormat = $state<ReportFormat>('CSV');
 
+	// Cadence chosen when scheduling the currently-configured report.
+	const scheduleFrequencies = ['Daily', 'Weekly', 'Monthly', 'Quarterly'];
+	let scheduleFrequency = $state('Monthly');
+
+	// Which filters a given report type actually honours. Filters that do not
+	// apply are disabled in the form so the UI never implies a filter is in
+	// effect when the backend ignores it. Mentor Analytics is a per-admin batch
+	// rollup and honours none of the student-scoped filters.
+	const reportFilterSupport: Record<string, { course: boolean; semester: boolean; date: boolean }> =
+		{
+			'Mentor Analytics': { course: false, semester: false, date: false }
+		};
+	function filterApplies(type: string, filter: 'course' | 'semester' | 'date'): boolean {
+		return reportFilterSupport[type]?.[filter] ?? true;
+	}
+
 	// Reports Center overview figures, loaded from the API.
 	let reportSummary = $state({
 		total_reports: 0,
@@ -1025,8 +1041,8 @@
 		triggerToast(`Template "${tpl.name}" loaded into the generator.`);
 	}
 
-	// With no dedicated scheduler modal, this schedules the report currently
-	// configured in the generate form on a monthly cadence.
+	// Schedules the report currently configured in the generate form on the
+	// selected cadence (scheduleFrequency).
 	async function scheduleNewReport() {
 		try {
 			const res = await fetch(`${reportsBase}/scheduled`, {
@@ -1035,7 +1051,7 @@
 				body: JSON.stringify({
 					name: `${reportType} Report`,
 					type: reportType,
-					frequency: 'Monthly',
+					frequency: scheduleFrequency,
 					format: reportFormat
 				})
 			});
@@ -1048,10 +1064,58 @@
 				return;
 			}
 
-			triggerToast(`Scheduled "${reportType} Report" (Monthly).`);
+			triggerToast(`Scheduled "${reportType} Report" (${scheduleFrequency}).`);
 			await loadReportsData();
 		} catch {
 			triggerToast('Failed to schedule report');
+		}
+	}
+
+	// Enables or disables a scheduled report. A disabled schedule stays in the
+	// list (so it can be re-enabled) but no longer runs.
+	async function toggleSchedule(sched: ScheduledReportItem) {
+		try {
+			const res = await fetch(`${reportsBase}/scheduled/${sched.id}`, {
+				method: 'PUT',
+				headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+				body: JSON.stringify({ enabled: !sched.enabled })
+			});
+
+			if (await unauthorized(res)) return;
+
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				triggerToast(data.error ?? 'Failed to update schedule');
+				return;
+			}
+
+			triggerToast(`"${sched.name}" ${sched.enabled ? 'disabled' : 'enabled'}.`);
+			await loadReportsData();
+		} catch {
+			triggerToast('Failed to update schedule');
+		}
+	}
+
+	// Permanently removes a scheduled report.
+	async function deleteSchedule(sched: ScheduledReportItem) {
+		try {
+			const res = await fetch(`${reportsBase}/scheduled/${sched.id}`, {
+				method: 'DELETE',
+				headers: authHeaders()
+			});
+
+			if (await unauthorized(res)) return;
+
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				triggerToast(data.error ?? 'Failed to delete schedule');
+				return;
+			}
+
+			triggerToast(`Deleted schedule "${sched.name}".`);
+			await loadReportsData();
+		} catch {
+			triggerToast('Failed to delete schedule');
 		}
 	}
 
@@ -2577,6 +2641,11 @@
 										<option value={type}>{type}</option>
 									{/each}
 								</select>
+								{#if !filterApplies(reportType, 'course') && !filterApplies(reportType, 'semester') && !filterApplies(reportType, 'date')}
+									<p class="text-[10px] text-slate-400 font-semibold">
+										This report is not scoped by course, semester or date range.
+									</p>
+								{/if}
 							</div>
 
 							<!-- Course / Semester -->
@@ -2590,7 +2659,8 @@
 									<select
 										id="report-course"
 										bind:value={reportCourse}
-										class="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:border-slate-355"
+										disabled={!filterApplies(reportType, 'course')}
+										class="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:border-slate-355 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
 									>
 										{#each reportCourses as course}
 											<option value={course}>{course}</option>
@@ -2605,7 +2675,8 @@
 									<select
 										id="report-semester"
 										bind:value={reportSemester}
-										class="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:border-slate-355"
+										disabled={!filterApplies(reportType, 'semester')}
+										class="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:border-slate-355 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
 									>
 										{#each reportSemesters as sem}
 											<option value={sem}>{sem}</option>
@@ -2625,7 +2696,8 @@
 										id="report-from"
 										type="date"
 										bind:value={reportFrom}
-										class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355"
+										disabled={!filterApplies(reportType, 'date')}
+										class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
 									/>
 								</div>
 								<div class="flex flex-col gap-1.5">
@@ -2637,7 +2709,8 @@
 										id="report-to"
 										type="date"
 										bind:value={reportTo}
-										class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355"
+										disabled={!filterApplies(reportType, 'date')}
+										class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
 									/>
 								</div>
 							</div>
@@ -2868,23 +2941,38 @@
 							class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/20 select-none"
 						>
 							<h3 class="text-sm font-bold font-serif text-slate-905">Scheduled Reports</h3>
-							<button
-								type="button"
-								onclick={scheduleNewReport}
-								class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C23A3A] hover:bg-[#B03131] text-white font-bold text-[10px] uppercase tracking-wider rounded-lg transition-colors focus:outline-none"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="2"
-									stroke="currentColor"
-									class="w-3.5 h-3.5"
+							<div class="flex items-center gap-2">
+								<select
+									bind:value={scheduleFrequency}
+									aria-label="Schedule frequency"
+									class="px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-white focus:outline-none focus:border-slate-355"
 								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-								</svg>
-								Schedule New
-							</button>
+									{#each scheduleFrequencies as freq}
+										<option value={freq}>{freq}</option>
+									{/each}
+								</select>
+								<button
+									type="button"
+									onclick={scheduleNewReport}
+									class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C23A3A] hover:bg-[#B03131] text-white font-bold text-[10px] uppercase tracking-wider rounded-lg transition-colors focus:outline-none"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="2"
+										stroke="currentColor"
+										class="w-3.5 h-3.5"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M12 4.5v15m7.5-7.5h-15"
+										/>
+									</svg>
+									Schedule New
+								</button>
+							</div>
 						</div>
 						<div class="p-3 space-y-1">
 							{#each scheduledReports as sched}
@@ -2892,7 +2980,9 @@
 									class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors"
 								>
 									<div
-										class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0"
+										class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border {sched.enabled
+											? 'bg-amber-50 text-amber-600 border-amber-100'
+											: 'bg-slate-50 text-slate-400 border-slate-200'}"
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -2916,13 +3006,89 @@
 											>{sched.freq}</span
 										>
 									</div>
-									<span
-										class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border bg-emerald-50 text-emerald-700 border-emerald-100 shrink-0"
-									>
-										<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-										Scheduled
-									</span>
+									{#if sched.enabled}
+										<span
+											class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border bg-emerald-50 text-emerald-700 border-emerald-100 shrink-0"
+										>
+											<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+											Scheduled
+										</span>
+									{:else}
+										<span
+											class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border bg-slate-100 text-slate-500 border-slate-200 shrink-0"
+										>
+											<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+											Disabled
+										</span>
+									{/if}
+									<div class="flex items-center gap-1 shrink-0">
+										<button
+											type="button"
+											onclick={() => toggleSchedule(sched)}
+											title={sched.enabled ? 'Disable schedule' : 'Enable schedule'}
+											aria-label={sched.enabled ? 'Disable schedule' : 'Enable schedule'}
+											class="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none"
+										>
+											{#if sched.enabled}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="2"
+													stroke="currentColor"
+													class="w-4 h-4"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M15.75 5.25v13.5m-7.5-13.5v13.5"
+													/>
+												</svg>
+											{:else}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="2"
+													stroke="currentColor"
+													class="w-4 h-4"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 0 1 0 1.971l-11.54 6.347a1.125 1.125 0 0 1-1.667-.985V5.653Z"
+													/>
+												</svg>
+											{/if}
+										</button>
+										<button
+											type="button"
+											onclick={() => deleteSchedule(sched)}
+											title="Delete schedule"
+											aria-label="Delete schedule"
+											class="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors focus:outline-none"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="2"
+												stroke="currentColor"
+												class="w-4 h-4"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+												/>
+											</svg>
+										</button>
+									</div>
 								</div>
+							{:else}
+								<p class="px-3 py-6 text-center text-[11px] text-slate-400 font-semibold">
+									No scheduled reports yet.
+								</p>
 							{/each}
 						</div>
 					</div>
