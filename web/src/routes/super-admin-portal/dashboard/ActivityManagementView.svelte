@@ -236,8 +236,13 @@
 		e.preventDefault();
 		if (!formName.trim()) return;
 
-		if (!formTrack || (availableTracks.length === 0 && !availableTracks.some((t) => t.name === formTrack))) {
-			triggerToast('Please select a valid track. If no tracks exist, create one in Track Management first.');
+		if (
+			!formTrack ||
+			(availableTracks.length === 0 && !availableTracks.some((t) => t.name === formTrack))
+		) {
+			triggerToast(
+				'Please select a valid track. If no tracks exist, create one in Track Management first.'
+			);
 			return;
 		}
 
@@ -996,7 +1001,9 @@
 							class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-850 bg-white focus:outline-none focus:border-slate-355 disabled:bg-slate-100 disabled:text-slate-400"
 						>
 							{#if availableTracks.length === 0 && !formTrack}
-								<option value="" disabled selected>No tracks available. Please create a track first.</option>
+								<option value="" disabled selected
+									>No tracks available. Please create a track first.</option
+								>
 							{:else}
 								{#each availableTracks as trackOption}
 									<option value={trackOption.name}>{trackOption.name}</option>
@@ -1008,7 +1015,8 @@
 						</select>
 						{#if availableTracks.length === 0 && !formTrack}
 							<p class="text-[11px] text-amber-600 font-medium mt-1">
-								No active tracks exist in the database. Please add a track in Track Management first.
+								No active tracks exist in the database. Please add a track in Track Management
+								first.
 							</p>
 						{/if}
 					</div>
