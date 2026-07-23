@@ -584,6 +584,9 @@
 									<option value="B.Com (Hons) UG">B.Com (Hons) UG</option>
 									<option value="MBA(MS) 2yrs PG">MBA(MS) 2yrs PG</option>
 									<option value="MBA(APR) 2yrs PG">MBA(APR) 2yrs PG</option>
+									<option value="MBA(Entrepreneurship) 2yrs PG"
+										>MBA(Entrepreneurship) 2yrs PG</option
+									>
 									<option value="MBA(T) 2yrs PG">MBA(T) 2yrs PG</option>
 								</select>
 								<div

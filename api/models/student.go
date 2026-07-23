@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,13 +19,59 @@ const (
 	CourseBComHons = "B.Com (Hons) UG"
 	CourseMBAMS2Yr = "MBA(MS) 2yrs PG"
 	CourseMBAAPR   = "MBA(APR) 2yrs PG"
+	CourseMBAEnt   = "MBA(Entrepreneurship) 2yrs PG"
 	CourseMBAT     = "MBA(T) 2yrs PG"
 )
 
 // CanonicalCourses is the ordered list of programmes offered by IIPS.
 var CanonicalCourses = []string{
 	CourseMBAMS5Yr, CourseMCA5Yr, CourseMTechCS, CourseMTechIT,
-	CourseBComHons, CourseMBAMS2Yr, CourseMBAAPR, CourseMBAT,
+	CourseBComHons, CourseMBAMS2Yr, CourseMBAAPR, CourseMBAEnt, CourseMBAT,
+}
+
+var legacyCourseNames = map[string]string{
+	"computer science":                             CourseMTechCS,
+	"m.tech (computer science - cs)":               CourseMTechCS,
+	"btech + mtech (computer science)":             CourseMTechCS,
+	"information technology":                       CourseMTechIT,
+	"m.tech (information technology - it)":         CourseMTechIT,
+	"btech + mtech (information tech)":             CourseMTechIT,
+	"mca":                                          CourseMCA5Yr,
+	"mca (master of computer applications)":        CourseMCA5Yr,
+	"bca":                                          CourseMCA5Yr,
+	"bca + mca":                                    CourseMCA5Yr,
+	"mba (management science - ms)":                CourseMBAMS5Yr,
+	"mba (management science)":                     CourseMBAMS2Yr,
+	"mba (advertising and public relations - apr)": CourseMBAAPR,
+	"mba (entrepreneurship)":                       CourseMBAEnt,
+	"b.com. (hons.)":                               CourseBComHons,
+}
+
+// NormalizeCourseName accepts canonical values and names used by older forms
+// while always returning the exact value stored by current code.
+func NormalizeCourseName(courseName string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(courseName))
+	for _, canonical := range CanonicalCourses {
+		if normalized == strings.ToLower(canonical) {
+			return canonical, true
+		}
+	}
+
+	canonical, ok := legacyCourseNames[normalized]
+	return canonical, ok
+}
+
+// CourseNameAliases returns a copy so data migrations can normalize legacy
+// rows without exposing mutable package state.
+func CourseNameAliases() map[string]string {
+	aliases := make(map[string]string, len(legacyCourseNames)+len(CanonicalCourses))
+	for legacy, canonical := range legacyCourseNames {
+		aliases[legacy] = canonical
+	}
+	for _, canonical := range CanonicalCourses {
+		aliases[strings.ToLower(canonical)] = canonical
+	}
+	return aliases
 }
 
 type Student struct {
