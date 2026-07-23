@@ -85,4 +85,11 @@ func ConnectDB() {
 				Update("track_id", personalityTrack.ID)
 		}
 	}
+
+	// Safe data migration: existing verified students predate the status column
+	// (whose default is "Pending"), so mark them Active. This keeps the super
+	// admin registry from reporting already-active accounts as Pending.
+	DB.Model(&models.Student{}).
+		Where("is_verified = ? AND status = ?", true, "Pending").
+		Update("status", "Active")
 }

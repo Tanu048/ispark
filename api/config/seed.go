@@ -428,6 +428,7 @@ func seedActivities(trackIDs map[string]uint) ([]models.Activity, error) {
 		var existing models.Activity
 		if err := DB.Where(models.Activity{Name: activity.Name}).
 			Assign(models.Activity{
+				Category:      activity.Category,
 				TrackID:       trackID,
 				Type:          activity.Type,
 				Description:   activity.Description,
